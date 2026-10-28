@@ -1,10 +1,12 @@
 import Foundation
 import CoreLocation
 import AMapFoundationKit
-import MAMapKit
+import AMapNaviKit
 import AMapSearchKit
 
 /// 高德 SDK 初始化：Key + 隐私合规（不调用隐私接口会直接崩）
+/// 注意：项目只链 AMapNaviKit（11.x 内置完整地图引擎，与 AMap3DMap 互斥），
+/// MAMapView 等地图类型由 AMapNaviKit 头文件透出。
 enum AMapConfig {
     static let apiKey = "5d823b966a591be1f6d855c15767848d"
 
@@ -12,9 +14,14 @@ enum AMapConfig {
         AMapServices.shared().apiKey = apiKey
         AMapServices.shared().enableHTTPS = true
 
+        // 导航 SDK 隐私合规（必须最先调用）
+        let naviConfig = AMapNaviManagerConfig.sharedConfig()
+        naviConfig.updatePrivacyShow(.didShow, privacyInfo: .didContain)
+        naviConfig.updatePrivacyAgree(.didAgree)
+
+        // 地图 / 搜索 SDK 隐私合规
         MAMapView.updatePrivacyShow(.didShow, privacyInfo: .didContain)
         MAMapView.updatePrivacyAgree(.didAgree)
-
         AMapSearchAPI.updatePrivacyShow(.didShow, privacyInfo: .didContain)
         AMapSearchAPI.updatePrivacyAgree(.didAgree)
     }

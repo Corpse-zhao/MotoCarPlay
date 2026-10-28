@@ -1,10 +1,9 @@
 import SwiftUI
 import UIKit
 import CoreLocation
-import MAMapKit
 import AMapNaviKit
 
-/// 高德地图画布（MAMapView）
+/// 高德地图画布（MAMapView，由 AMapNaviKit 透出）
 struct AMapCanvas: UIViewRepresentable {
     func makeUIView(context: Context) -> MAMapView {
         let map = MAMapView(frame: .zero)

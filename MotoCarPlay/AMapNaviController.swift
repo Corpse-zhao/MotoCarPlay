@@ -15,6 +15,7 @@ final class AMapNaviController: NSObject, ObservableObject {
 
     private var driveManager: AMapNaviDriveManager?
     private var driveView: AMapNaviDriveView?
+    private var cruiseView: AMapNaviDriveView?
     private var routeReady = false
 
     private func setupIfNeeded() {
@@ -46,11 +47,26 @@ final class AMapNaviController: NSObject, ObservableObject {
             return
         }
 
+        // 开导航前必须先关巡航（SDK 要求）
+        driveManager?.detectedMode = AMapNaviDetectedMode(rawValue: 0)!   // none
         driveManager?.stopNavi()
         driveManager?.calculateDriveRoute(withStart: [origin],
                                           end: [end],
                                           wayPoints: [],
                                           drivingStrategy: .drivingStrategySingleDefault)
+    }
+
+    /// 待机地图页：巡航模式（车头向上 + 电子眼播报提醒）
+    func attachCruise(view: AMapNaviDriveView) {
+        cruiseView = view
+        setupIfNeeded()
+        driveManager?.addDataRepresentative(view)
+        driveManager?.detectedMode = AMapNaviDetectedMode(rawValue: 1)!   // camera：电子眼
+    }
+
+    func detachCruise(view: AMapNaviDriveView) {
+        driveManager?.removeDataRepresentative(view)
+        if cruiseView === view { cruiseView = nil }
     }
 
     /// 导航界面创建后挂进来；如果路线已算好就立刻开播
