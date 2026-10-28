@@ -1,0 +1,39 @@
+name: MotoCarPlay
+options:
+  bundleIdPrefix: com.corpsezhao
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+targets:
+  MotoCarPlay:
+    type: application
+    platform: iOS
+    sources:
+      - path: MotoCarPlay
+        excludes:
+          - Info.plist
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.9"
+    info:
+      path: MotoCarPlay/Info.plist
+      properties:
+        UILaunchScreen: {}
+        CFBundleDisplayName: 摩托CarPlay
+        NSLocationWhenInUseUsageDescription: 需要定位以显示车速、航向和骑行导航。
+        NSLocationAlwaysAndWhenInUseUsageDescription: 骑行中持续显示车速和导航指引。
+        UIBackgroundModes:
+          - audio
+          - location
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        MinimumOSVersion: "16.0"
