@@ -21,8 +21,8 @@ targets:
       properties:
         UILaunchScreen: {}
         CFBundleDisplayName: 摩托CarPlay
-        CFBundleShortVersionString: "0.5.9"
-        CFBundleVersion: "16"
+        CFBundleShortVersionString: "0.6.0"
+        CFBundleVersion: "17"
         NSLocationWhenInUseUsageDescription: 需要定位以显示车速、航向和骑行导航。
         NSLocationAlwaysAndWhenInUseUsageDescription: 骑行中持续显示车速和导航指引。
         NSAppleMusicUsageDescription: 需要读取系统正在播放的音乐，以便在车机界面上显示和控制。
@@ -45,8 +45,9 @@ targets:
           - audio
           - location
         UIRequiresFullScreen: true
-        UIStatusBarHidden: true
-        UIViewControllerBasedStatusBarAppearance: false
+        # 状态栏交给视图控制器决定，才能在运行时切换（设置里"显示系统状态栏"）
+        UIStatusBarHidden: false
+        UIViewControllerBasedStatusBarAppearance: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight

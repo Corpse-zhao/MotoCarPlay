@@ -50,8 +50,11 @@ enum FloatingLauncher {
 
     private static func afterOpenFloating() {
         guard floatingEnabled else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            postDarwin(floatingNotify)
+        // 两次：App 刚切走时 SpringBoard 可能还没把前台切到汽水，晚一点再补一发
+        for delay in [0.6, 1.8] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                postDarwin(floatingNotify)
+            }
         }
     }
 

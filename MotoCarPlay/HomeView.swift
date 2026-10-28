@@ -84,7 +84,6 @@ struct AppsPageView: View {
                     if value.translation.width < -60 { onSwipeBack() }
                 }
         )
-        .statusBarHidden()
     }
 
     private func showHint(_ text: String) {

@@ -12,7 +12,6 @@ struct MotoCarPlayApp: App {
         WindowGroup {
             RootView()
                 .preferredColorScheme(.dark)
-                .persistentSystemOverlays(.hidden)
                 .onAppear { Orientation.lockLandscape() }
         }
     }

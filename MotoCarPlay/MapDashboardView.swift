@@ -60,6 +60,12 @@ struct MapDashboardView: View {
             AMapCanvas()
                 .ignoresSafeArea()
 
+            // 顶部右角左滑 → 浮窗打开汽水音乐
+            // 放在地图层之上、待机浮层之下：既不挡右上角图标按钮，又能吃到那片空白区的滑动
+            if !navi.isNavigating {
+                TopRightSwipeLauncher()
+            }
+
             if navi.isNavigating {
                 NaviScreen()
                     .transition(.opacity)
@@ -207,7 +213,6 @@ struct NaviScreen: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
         }
-        .statusBarHidden()
     }
 }
 

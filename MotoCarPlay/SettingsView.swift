@@ -6,6 +6,7 @@ struct SettingsView: View {
     @AppStorage("keepScreenOn") private var keepScreenOn = true
     @AppStorage("musicSource") private var musicSourceRaw = MusicSource.qq.rawValue
     @AppStorage(FloatingLauncher.enabledKey) private var floatingQishui = true
+    @AppStorage("showStatusBar") private var showStatusBar = false
 
     var body: some View {
         NavigationStack {
@@ -20,7 +21,7 @@ struct SettingsView: View {
                         }
                         Toggle("浮窗打开汽水（配合分屏插件）", isOn: $floatingQishui)
                             .tint(Theme.accent)
-                        Text("开启后：点多功能页的「音乐」方块＝直接拉起汽水音乐，并先通知分屏插件 floatingView 以浮窗方式打开（等同你长按锁屏键的动作）。长按「音乐」方块可进入本 App 的音乐页。")
+                        Text("开启后：点多功能页的「音乐」方块，或者在地图页顶部右角往左滑，都会直接拉起汽水音乐，并通知分屏插件 floatingView 以浮窗方式打开（等同你长按锁屏键的动作）。长按「音乐」方块可进入本 App 的音乐页。")
                             .font(.system(size: 12))
                             .foregroundColor(.white.opacity(0.55))
                     }
@@ -28,7 +29,9 @@ struct SettingsView: View {
                     Section("显示") {
                         Toggle("屏幕常亮（骑行推荐开启）", isOn: $keepScreenOn)
                             .tint(Theme.accent)
-                        Text("界面固定横屏；地图主界面左上角显示车速与方向，右滑进入多功能页。")
+                        Toggle("显示系统状态栏（配合状态栏手势插件）", isOn: $showStatusBar)
+                            .tint(Theme.accent)
+                        Text("开启后顶部露出系统状态栏，状态栏区域（电池那一块）重新归 SpringBoard 管辖，手势插件就能在 App 内用「顶部左滑」等状态栏手势把汽水开成浮窗。注意：带刘海的机型横屏时系统不显示状态栏，这种情况下用「地图页顶部右角左滑」这条自带手势即可。")
                             .font(.system(size: 12))
                             .foregroundColor(.white.opacity(0.55))
                     }
@@ -53,7 +56,7 @@ struct SettingsView: View {
 
                     Section {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("MotoCarPlay v0.5.9")
+                            Text("MotoCarPlay v0.6.0")
                                 .font(.system(size: 15))
                                 .foregroundColor(.white.opacity(0.7))
                             Text("地图主界面 + 多功能页 · 全部功能在 App 内完成")
@@ -74,15 +77,18 @@ struct SettingsView: View {
             .onChange(of: keepScreenOn) { on in
                 UIApplication.shared.isIdleTimerDisabled = on
             }
+            .onChange(of: showStatusBar) { on in
+                StatusBar.apply(visible: on)
+            }
             .onAppear {
                 UIApplication.shared.isIdleTimerDisabled = keepScreenOn
+                StatusBar.apply(visible: showStatusBar)
             }
         }
         .preferredColorScheme(.dark)
     }
 
-    private var contactsStatus: String {
-        switch CNContactStore.authorizationStatus(for: .contacts) {
+    private var contactsStatus: String {        switch CNContactStore.authorizationStatus(for: .contacts) {
         case .authorized: return "已允许"
         case .limited: return "部分允许"
         case .denied: return "已拒绝"
