@@ -1,4 +1,5 @@
 import UIKit
+import Foundation
 import CoreFoundation
 
 /// 拉起汽水音乐（尽量配合分屏插件 floatingView 以浮窗方式打开）。
@@ -21,7 +22,12 @@ enum FloatingLauncher {
     /// - fv_openFloatingView：打开浮窗
     /// - fv_toggleMainFloatingAppDisplay：显示/隐藏主浮窗（不发，怕和打开动作相互抵消）
     /// - fv_closeMainFloatingApp：关闭主浮窗（不需要）
-    private static let fvOpenNotifications = ["fv_openFloatingView_lastRun", "fv_openFloatingView"]
+    private static let fvActionMessages = [
+        "fv_openFloatingView_lastRun",
+        "fv_openFloatingView",
+        "fv_openFloatingView_toSide",
+        "fv_toggleMainFloatingAppDisplay",
+    ]
     /// 汽水音乐的 bundle id 候选：iOS 侧一般是 com.soda.music，安卓/部分版本是 com.luna.music。
     /// 不猜，逐个试，谁打开了算谁的。
     static let qishuiBundleIDs = ["com.soda.music", "com.luna.music"]
@@ -73,13 +79,19 @@ enum FloatingLauncher {
 
     private static func afterOpenFloating() {
         guard floatingEnabled else { return }
-        // 汽水刚切到前台需要一点时间，分两条通知错开发：
-        // 0.7s 试「上次浮窗运行的 App」，1.9s 再补一发通用的「打开浮窗」
-        for (index, name) in fvOpenNotifications.enumerated() {
-            let delay = 0.7 + Double(index) * 1.2
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                postDarwin(name)
-            }
+        // 汽水切前台需要一点时间，两轮广播：0.7s 起、2.0s 补
+        for delay in [0.7, 2.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { broadcast() }
+        }
+    }
+
+    /// 多通道广播。
+    /// floatingView 的 FVNotificationCenter 既可能挂 Darwin 通知，也可能挂分布式通知，
+    /// 沙盒 App 只有这两条路可走，所以同名消息两个通道都发一遍（收不到的那条无副作用）。
+    private static func broadcast() {
+        for name in fvActionMessages {
+            postDarwin(name)
+            postDistributed(name)
         }
     }
 
@@ -89,6 +101,12 @@ enum FloatingLauncher {
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
                                              notificationName,
                                              nil, nil, true)
+    }
+
+    /// 发分布式通知（可跨进程，带 userInfo 能力）
+    private static func postDistributed(_ name: String) {
+        DistributedNotificationCenter.default().postNotificationName(
+            NSNotification.Name(name), object: nil, userInfo: nil, deliverImmediately: true)
     }
 
     // MARK: - 私有 API（TrollStore / 越狱环境可用）
