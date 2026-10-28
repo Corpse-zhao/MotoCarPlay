@@ -81,6 +81,7 @@ struct SettingsView: View {
     private var contactsStatus: String {
         switch CNContactStore.authorizationStatus(for: .contacts) {
         case .authorized: return "已允许"
+        case .limited: return "部分允许"
         case .denied: return "已拒绝"
         case .restricted: return "受限制"
         case .notDetermined: return "未请求"

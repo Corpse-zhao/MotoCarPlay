@@ -25,17 +25,11 @@ jobs:
 
       - name: Dump AMapNavi headers
         run: |
-          echo "===== DriveManager ====="
-          grep -nE "DataReviewer|SingleNaviView|calculateDriveRoute|startNavi|stopNavi|pauseNavi|resumeNavi|sharedInstance|destroyInstance" Pods/AMapNavi/AMapNaviKit.framework/Headers/AMapNaviDriveManager.h
-          echo "===== Delegate ====="
-          grep -nE "onCalculateRoute|driveManager.*error|onNavi|onArrived" Pods/AMapNavi/AMapNaviKit.framework/Headers/AMapNaviDriveManager.h
-          echo "===== DriveView ====="
-          grep -nE "@interface|initWithFrame|AMapNaviDriveDataReviewer" Pods/AMapNavi/AMapNaviKit.framework/Headers/AMapNaviDriveView.h
-          echo "===== Enums ====="
-          grep -nE "typedef NS_ENUM|AMapNaviDrivingStrategy|AMapNaviType|AMapNaviRoutePlanType" Pods/AMapNavi/AMapNaviKit.framework/Headers/AMapNaviCommonObj.h
-          grep -nE "AMapNaviDrivingStrategy|strategySpeed|AMapNaviTypeGPS" Pods/AMapNavi/AMapNaviKit.framework/Headers/*.h | head -40
-          echo "===== 3DMap accuracy ====="
-          grep -rn "ccuracyRing" Pods/AMap3DMap/MAMapKit.framework/Headers/ | head
+          echo "===== DriveViewDataManager ====="
+          ls Pods/AMapNavi/AMapNaviKit.framework/Headers/ | grep -i "DataManager\|DriveView"
+          grep -nE "@interface|addDataReceiver|removeDataReceiver|startNavi|stopNavi|pauseNavi|resumeNavi" Pods/AMapNavi/AMapNaviKit.framework/Headers/AMapNaviDriveViewDataManager.h 2>/dev/null || grep -rnE "addDataReceiver|DriveViewDataManager" Pods/AMapNavi/AMapNaviKit.framework/Headers/ | head -30
+          echo "===== DriveManager dataManager prop ====="
+          grep -nE "DataManager|calculateDriveRouteWithStartPoints|drivingStrategy" Pods/AMapNavi/AMapNaviKit.framework/Headers/AMapNaviDriveManager.h | head -20
 
       - name: Build (unsigned)
         run: |

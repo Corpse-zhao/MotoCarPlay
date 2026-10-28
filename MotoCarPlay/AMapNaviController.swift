@@ -4,6 +4,7 @@ import CoreLocation
 import Combine
 
 /// 高德原生导航：AMapNaviDriveManager + AMapNaviDriveView
+/// 新版 SDK（10.x）：View 的数据挂载与导航启停都走 AMapNaviDriveViewDataManager
 /// 自带车头向上、放大道路、路口大图、车道指引，由 SDK 全权渲染
 final class AMapNaviController: NSObject, ObservableObject {
     static let shared = AMapNaviController()
@@ -44,28 +45,28 @@ final class AMapNaviController: NSObject, ObservableObject {
         let end = AMapNaviPoint.location(withLatitude: CGFloat(dest.coordinate.latitude),
                                          longitude: CGFloat(dest.coordinate.longitude))
 
-        driveManager?.stopNavi()
+        driveManager?.driveViewDataManager?.stopNavi()
         driveManager?.calculateDriveRoute(withStart: [origin],
                                           end: [end],
                                           wayPoints: [],
-                                          drivingStrategy: .speed)
+                                          drivingStrategy: .singleDefault)
     }
 
     /// 导航界面创建后挂进来；如果路线已算好就立刻开播
     func attach(view: AMapNaviDriveView) {
         driveView = view
         setupIfNeeded()
-        driveManager?.addDataReviewer(view)
+        driveManager?.driveViewDataManager?.addDataReceiver(view)
         tryStart()
     }
 
     func detach(view: AMapNaviDriveView) {
-        driveManager?.removeDataReviewer(view)
+        driveManager?.driveViewDataManager?.removeDataReceiver(view)
         if driveView === view { driveView = nil }
     }
 
     func stop() {
-        driveManager?.stopNavi()
+        driveManager?.driveViewDataManager?.stopNavi()
         isNavigating = false
         calculating = false
         statusText = nil
@@ -75,7 +76,7 @@ final class AMapNaviController: NSObject, ObservableObject {
         guard routeReady, waitingStart, let view = driveView else { return }
         waitingStart = false
         calculating = false
-        driveManager?.startNavi(with: .gps)
+        driveManager?.driveViewDataManager?.startNavi(with: .gps)
     }
 }
 
