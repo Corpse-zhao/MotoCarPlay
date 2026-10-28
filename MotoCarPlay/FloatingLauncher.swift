@@ -7,16 +7,18 @@ import CoreFoundation
 /// - 主体只注入 com.apple.springboard，没有注册 URL Scheme，沙盒 App 无法直接调它的浮窗 API
 /// - 它内部有一条 Darwin 通知 `com.be-huge.floating-view.shortcuts`（桌面长按图标"浮窗打开"走这条）
 ///
-/// 拉起顺序（v0.6.1 修正）：
-/// 1. **按 bundle id 精确拉起**（com.luna.music）—— 唯一不会开错 App 的方式
-/// 2. 已安装列表里按名字「汽水」/ bundle id 含 luna 模糊找一次（应对企业签名变体）
+/// 拉起顺序（v0.6.2 修正）：
+/// 1. **按 bundle id 精确拉起**（com.soda.music / com.luna.music 逐个试）—— 唯一不会开错 App 的方式
+/// 2. 已安装列表里按名字「汽水」/ bundle id 含 soda、luna 模糊找一次（应对企业签名变体）
 /// 3. 最后才试汽水自己的 URL scheme
 /// ⚠️ 绝不能再放 snssdk1128:// —— 那是抖音（同属字节），v0.6.0 就是这么把抖音打开了的。
 /// 4. 打开成功后补一条 Darwin 通知，请求插件把当前 App 转成浮窗
 enum FloatingLauncher {
     static let enabledKey = "moto.floating.qishui.enabled"
     private static let floatingNotify = "com.be-huge.floating-view.shortcuts"
-    private static let qishuiBundleID = "com.luna.music"
+    /// 汽水音乐的 bundle id 候选：iOS 侧一般是 com.soda.music，安卓/部分版本是 com.luna.music。
+    /// 不猜，逐个试，谁打开了算谁的。
+    static let qishuiBundleIDs = ["com.soda.music", "com.luna.music"]
     /// 只保留汽水自己的 scheme（未验证的 snssdk1128 / luna 已删除，避免再开错 App）
     private static let qishuiSchemes = ["qishui://"]
 
@@ -31,14 +33,14 @@ enum FloatingLauncher {
     /// 点一下 / 顶部右角左滑 = 你长按 2.5 秒锁屏键的效果：打开汽水音乐
     /// - Parameter failure: 打不开时回调原因（界面用来提示，避免"点了没反应"）
     static func openQishui(failure: @escaping (String) -> Void) {
-        // 1) 按 bundle id 精确拉起
-        if openByBundleID(qishuiBundleID) {
+        // 1) 按 bundle id 精确拉起（候选逐个试，成功即返回）
+        for id in qishuiBundleIDs where openByBundleID(id) {
             afterOpenFloating()
             return
         }
 
-        // 2) 已安装列表里模糊找一次（bundle id 变体）
-        if let alt = findQishuiBundleID(), alt != qishuiBundleID, openByBundleID(alt) {
+        // 2) 已安装列表里模糊找一次（bundle id 变体 / 企业签名版）
+        if let alt = findQishuiBundleID(), !qishuiBundleIDs.contains(alt), openByBundleID(alt) {
             afterOpenFloating()
             return
         }
@@ -120,11 +122,14 @@ enum FloatingLauncher {
         return (obj.perform(sel)?.takeUnretainedValue() as? String) ?? ""
     }
 
-    /// 找汽水音乐的 bundle id：精确 → 名字含「汽水」→ bundle id 含 luna
+    /// 找汽水音乐的 bundle id：候选精确匹配 → 名字含「汽水」→ bundle id 含 soda / luna
     static func findQishuiBundleID() -> String? {
         let apps = installedApps()
-        if apps.contains(where: { $0.id == qishuiBundleID }) { return qishuiBundleID }
+        for id in qishuiBundleIDs where apps.contains(where: { $0.id == id }) {
+            return id
+        }
         if let hit = apps.first(where: { $0.name.contains("汽水") }) { return hit.id }
+        if let hit = apps.first(where: { $0.id.lowercased().contains("soda") }) { return hit.id }
         if let hit = apps.first(where: { $0.id.lowercased().contains("luna") }) { return hit.id }
         return nil
     }
@@ -139,9 +144,13 @@ enum FloatingLauncher {
 
         if let id = findQishuiBundleID() {
             let name = apps.first(where: { $0.id == id })?.name ?? "?"
-            lines.append("汽水音乐：\(name)（\(id)）")
+            lines.append("匹配到汽水音乐：\(name)（\(id)）")
         } else {
-            lines.append("汽水音乐：没有在已安装列表里匹配到")
+            lines.append("没匹配到汽水音乐")
+        }
+
+        for id in qishuiBundleIDs {
+            lines.append("\(id)：\(apps.contains(where: { $0.id == id }) ? "已安装" : "不在列表")")
         }
 
         for scheme in qishuiSchemes {
