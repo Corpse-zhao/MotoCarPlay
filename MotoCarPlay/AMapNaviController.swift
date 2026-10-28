@@ -3,6 +3,7 @@ import AMapNaviKit
 import AVFoundation
 import CoreLocation
 import Combine
+import UIKit
 
 /// 高德原生导航（AMapNaviKit 11.2.100 真实 API）：
 /// AMapNaviDriveManager.sharedInstance() + addDataRepresentative(AMapNaviDriveView)
@@ -111,6 +112,46 @@ final class AMapNaviController: NSObject, ObservableObject {
         setupIfNeeded()
         driveManager?.addDataRepresentative(view)
         tryStart()
+        // SDK 的"退出/设置"按钮无法通过配置关闭，只能在 UI 建好后从视图树里藏掉
+        for delay in [0.3, 1.0, 2.0, 4.0, 8.0, 15.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.hideSDKButtons()
+            }
+        }
+    }
+
+    /// 隐藏 AMapNaviDriveView 自带的"退出 / 设置 / 更多"控件（它们没有对应实现，点了没反应）
+    private func hideSDKButtons() {
+        guard let root = driveView else { return }
+        hideControls(in: root, depth: 0)
+    }
+
+    private func hideControls(in view: UIView, depth: Int) {
+        guard depth < 16 else { return }
+        for sub in view.subviews {
+            if let control = sub as? UIControl, !(control is UITextField) {
+                let labels = labelTexts(in: control)
+                let junk = ["退出", "设置", "更多", "关闭"]
+                if labels.contains(where: { text in junk.contains(where: { text.contains($0) }) }) {
+                    control.isHidden = true
+                    control.alpha = 0
+                    control.isUserInteractionEnabled = false
+                    continue
+                }
+            }
+            hideControls(in: sub, depth: depth + 1)
+        }
+    }
+
+    private func labelTexts(in view: UIView) -> [String] {
+        var out: [String] = []
+        if let label = view as? UILabel, let text = label.text { out.append(text) }
+        if let button = view as? UIButton {
+            if let t = button.title(for: .normal) { out.append(t) }
+            if let t = button.currentTitle { out.append(t) }
+        }
+        for sub in view.subviews { out.append(contentsOf: labelTexts(in: sub)) }
+        return out
     }
 
     func detach(view: AMapNaviDriveView) {

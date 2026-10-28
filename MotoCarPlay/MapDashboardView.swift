@@ -294,6 +294,15 @@ struct SpeedCard: View {
 
 // MARK: - 搜索面板（高德 POI，选中即开始高德导航）
 
+/// 距离文案：不足 1 公里按米，超过按公里（一位小数）
+func distanceText(_ meters: Double) -> String {
+    guard meters.isFinite, meters > 0 else { return "" }
+    if meters >= 1000 {
+        return String(format: "%.1f km", meters / 1000)
+    }
+    return "\(Int(meters.rounded())) m"
+}
+
 struct SearchSheet: View {
     @ObservedObject var model: NavigationModel
     @ObservedObject private var history = SearchHistory.shared
@@ -377,6 +386,9 @@ struct SearchSheet: View {
                                                 }
                                             }
                                             Spacer(minLength: 0)
+                                            Text(distanceText(distanceTo(record)))
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.white.opacity(0.5))
                                             Image(systemName: "arrow.turn.up.right")
                                                 .font(.system(size: 13, weight: .semibold))
                                                 .foregroundColor(Theme.accent.opacity(0.8))
@@ -422,9 +434,9 @@ struct SearchSheet: View {
                                             Text(poi.name)
                                                 .font(.system(size: 16, weight: .medium))
                                                 .foregroundColor(.white)
-                                            Text(poi.address.isEmpty
-                                                 ? "距离 \(Int(poi.distance)) m"
-                                                 : "\(poi.address) · \(Int(poi.distance)) m")
+                                            Text([poi.address, distanceText(poi.distance)]
+                                                    .filter { !$0.isEmpty }
+                                                    .joined(separator: " · "))
                                                 .font(.system(size: 12))
                                                 .foregroundColor(.white.opacity(0.5))
                                                 .lineLimit(1)
@@ -455,8 +467,15 @@ struct SearchSheet: View {
         }
     }
 
-    private func navigate(to name: String, address: String, latitude: Double, longitude: Double) {
-        history.add(name: name, address: address,
+    /// 历史记录到当前位置的直线距离（记录坐标是 GCJ-02，当前定位需先转 GCJ）
+    private func distanceTo(_ record: SearchRecord) -> Double {
+        guard let loc = LocationProvider.shared.location else { return 0 }
+        let gcj = CoordTransform.wgs84ToGcj02(loc.coordinate)
+        return CLLocation(latitude: gcj.latitude, longitude: gcj.longitude)
+            .distance(from: CLLocation(latitude: record.latitude, longitude: record.longitude))
+    }
+
+    private func navigate(to name: String, address: String, latitude: Double, longitude: Double) {        history.add(name: name, address: address,
                     coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
         dismiss()
         AMapNaviController.shared.beginNavigation(
