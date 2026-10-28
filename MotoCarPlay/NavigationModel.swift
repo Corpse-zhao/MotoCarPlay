@@ -40,11 +40,20 @@ extension NavigationModel: AMapSearchDelegate {
         guard let response, request is AMapPOIKeywordsSearchRequest else { return }
         let list = response.pois ?? []
         DispatchQueue.main.async {
-            self.pois = list.map {
-                POIResult(name: $0.name ?? "未知地点",
-                          address: $0.address ?? "",
-                          coordinate: $0.location.clCoordinate,
-                          distance: Double($0.distance))
+            // SDK 的 poi.distance 常为 0，自己算：当前定位（GCJ）到 POI 的直线距离
+            let userGCJ = LocationProvider.shared.location.map { CoordTransform.wgs84ToGcj02($0.coordinate) }
+            let userLoc = userGCJ.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
+            self.pois = list.map { poi in
+                let coord = poi.location.clCoordinate
+                var dist = Double(poi.distance)
+                if dist <= 0, let userLoc {
+                    dist = userLoc.distance(from: CLLocation(latitude: coord.latitude,
+                                                             longitude: coord.longitude))
+                }
+                return POIResult(name: poi.name ?? "未知地点",
+                                 address: poi.address ?? "",
+                                 coordinate: coord,
+                                 distance: dist)
             }
             self.searchFailed = list.isEmpty
         }
