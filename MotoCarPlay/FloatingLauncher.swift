@@ -34,8 +34,9 @@ enum FloatingLauncher {
 
     /// 发 Darwin 通知（沙盒 App 允许 post，不需要额外权限）
     private static func postDarwin(_ name: String) {
+        let notificationName = CFNotificationName(rawValue: name as CFString)
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
-                                             name as CFString,
+                                             notificationName,
                                              nil, nil, true)
     }
 
