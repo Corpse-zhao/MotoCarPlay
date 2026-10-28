@@ -21,12 +21,44 @@ final class AMapNaviController: NSObject, ObservableObject {
 
     /// 语音播报：SDK 只回调文字，播报由本类用系统 TTS 合成
     private let synthesizer = AVSpeechSynthesizer()
+    private var feedbackCancellables = Set<AnyCancellable>()
 
     private func setupIfNeeded() {
         guard driveManager == nil else { return }
         let manager = AMapNaviDriveManager.sharedInstance()
         manager.delegate = self
         driveManager = manager
+
+        // 把 App 自己的定位 + 罗盘喂给导航 SDK：
+        // 静止时 SDK 拿不到 GPS course，箭头不会转；喂入磁力计方向后箭头跟随手机指向
+        let lp = LocationProvider.shared
+        lp.$location.sink { [weak self] _ in self?.feedExternalLocation() }
+            .store(in: &feedbackCancellables)
+        lp.$heading.sink { [weak self] _ in self?.feedExternalLocation() }
+            .store(in: &feedbackCancellables)
+    }
+
+    /// 当前车头方向：移动中用 GPS course，静止时用磁力计（屏幕前方 = 手机顶部 + 横屏偏移）
+    private var naviCourse: CLLocationDirection {
+        let lp = LocationProvider.shared
+        if let loc = lp.location, loc.speed > 1.0, loc.course >= 0 {
+            return loc.course
+        }
+        let screenForward = lp.heading + Compass.screenUpOffset()
+        return screenForward.truncatingRemainder(dividingBy: 360)
+    }
+
+    private func feedExternalLocation() {
+        guard isNavigating, let loc = LocationProvider.shared.location else { return }
+        let gcj = CoordTransform.wgs84ToGcj02(loc.coordinate)
+        let external = CLLocation(coordinate: gcj,
+                                  altitude: loc.altitude,
+                                  horizontalAccuracy: loc.horizontalAccuracy,
+                                  verticalAccuracy: loc.verticalAccuracy,
+                                  course: naviCourse,
+                                  speed: max(0, loc.speed),
+                                  timestamp: Date())
+        driveManager?.setExternalLocation(external, isAMapCoordinate: true)
     }
 
     /// 选定目的地后调用：切到导航界面并开始算路
