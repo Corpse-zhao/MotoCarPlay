@@ -26,7 +26,7 @@ enum NavTarget: String, CaseIterable, Identifiable {
     /// 尝试把目的地交给外部导航 App，成功返回 true
     func handoff(to item: MKMapItem) -> Bool {
         guard self == .amap else { return false }
-        let coord = item.coordinate
+        let coord = item.placemark.coordinate
         let name = (item.name ?? "目的地").addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "目的地"
         // 高德使用 GCJ-02；国内 Apple 地图数据同样为 GCJ-02，可直接透传
         let urlString = String(format: "iosamap://path?sourceApplication=MotoCarPlay&dlat=%.6f&dlon=%.6f&dname=%@&dev=0&t=0",
