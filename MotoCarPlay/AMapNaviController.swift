@@ -50,7 +50,7 @@ final class AMapNaviController: NSObject, ObservableObject {
         driveManager?.calculateDriveRoute(withStart: [origin],
                                           end: [end],
                                           wayPoints: [],
-                                          drivingStrategy: .DrivingStrategySingleDefault)
+                                          drivingStrategy: .drivingStrategySingleDefault)
     }
 
     /// 导航界面创建后挂进来；如果路线已算好就立刻开播
