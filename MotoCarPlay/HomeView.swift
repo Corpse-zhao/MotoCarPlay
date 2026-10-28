@@ -10,6 +10,7 @@ struct AppsPageView: View {
     let onSwipeBack: () -> Void
 
     @StateObject private var location = LocationProvider.shared
+    @State private var hint: String?
 
     var body: some View {
         ZStack {
@@ -39,7 +40,9 @@ struct AppsPageView: View {
                             size: 88,
                             action: {
                                 // 点一下 = 长按 2.5 秒锁屏键：拉起汽水音乐（配合分屏插件即浮窗）
-                                FloatingLauncher.openQishui()
+                                FloatingLauncher.openQishui { msg in
+                                    showHint(msg)
+                                }
                             },
                             onLongPress: onMusic)
 
@@ -56,6 +59,23 @@ struct AppsPageView: View {
                     .foregroundColor(.white.opacity(0.35))
                     .padding(.bottom, 10)
             }
+
+            // 操作提示（比如没找到汽水音乐）
+            if let hint {
+                VStack {
+                    Spacer(minLength: 0)
+                    Text(hint)
+                        .font(.system(size: 13))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 11)
+                        .background(Capsule().fill(Color.black.opacity(0.85)))
+                        .padding(.bottom, 44)
+                }
+                .transition(.opacity)
+                .allowsHitTesting(false)
+            }
         }
         .contentShape(Rectangle())
         .simultaneousGesture(
@@ -65,6 +85,13 @@ struct AppsPageView: View {
                 }
         )
         .statusBarHidden()
+    }
+
+    private func showHint(_ text: String) {
+        withAnimation { hint = text }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation { hint = nil }
+        }
     }
 }
 
@@ -120,30 +147,32 @@ struct AppIcon: View {
     /// 长按（可选）：用于"点击=快捷动作，长按=进功能页"的图标
     var onLongPress: (() -> Void)? = nil
 
+    @State private var pressing = false
+
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 7) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
-                        .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
-                    Image(systemName: symbol)
-                        .font(.system(size: size * 0.42, weight: .medium))
-                        .foregroundColor(.white)
-                }
-                .frame(width: size, height: size)
-                .overlay(
-                    RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
-                        .stroke(Color.white.opacity(0.10), lineWidth: 0.5)
-                )
-                Text(title)
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.92))
+        VStack(spacing: 7) {
+            ZStack {
+                RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+                    .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
+                Image(systemName: symbol)
+                    .font(.system(size: size * 0.42, weight: .medium))
+                    .foregroundColor(.white)
             }
+            .frame(width: size, height: size)
+            .overlay(
+                RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 0.5)
+            )
+            Text(title)
+                .font(.system(size: 12))
+                .foregroundColor(.white.opacity(0.92))
         }
-        .buttonStyle(CardButton())
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.55)
-                .onEnded { _ in onLongPress?() }
-        )
+        .scaleEffect(pressing ? 0.94 : 1)
+        .animation(.easeOut(duration: 0.12), value: pressing)
+        .contentShape(Rectangle())
+        .onTapGesture { action() }
+        .onLongPressGesture(minimumDuration: 0.55, pressing: { pressing = $0 }) {
+            onLongPress?()
+        }
     }
 }

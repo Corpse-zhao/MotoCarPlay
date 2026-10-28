@@ -53,7 +53,7 @@ struct SettingsView: View {
 
                     Section {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("MotoCarPlay v0.5.8")
+                            Text("MotoCarPlay v0.5.9")
                                 .font(.system(size: 15))
                                 .foregroundColor(.white.opacity(0.7))
                             Text("地图主界面 + 多功能页 · 全部功能在 App 内完成")

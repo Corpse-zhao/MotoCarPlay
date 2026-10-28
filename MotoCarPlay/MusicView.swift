@@ -68,7 +68,7 @@ struct MusicView: View {
 
                         if source.deepLink != nil {
                             Button {
-                                FloatingLauncher.openQishui()
+                                FloatingLauncher.openQishui { _ in }
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: "arrow.up.forward.app")
