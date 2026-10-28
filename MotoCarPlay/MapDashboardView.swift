@@ -446,7 +446,13 @@ struct SearchSheet: View {
             .padding(16)
         }
         .preferredColorScheme(.dark)
-        .onAppear { focused = true }
+        .onAppear {
+            focused = true
+            // 每次打开搜索面板都清空上次结果，默认展示历史记录
+            model.pois = []
+            model.searchFailed = false
+            query = ""
+        }
     }
 
     private func navigate(to name: String, address: String, latitude: Double, longitude: Double) {
