@@ -5,4 +5,5 @@ target 'MotoCarPlay' do
 
   pod 'AMap3DMap'
   pod 'AMapSearch'
+  pod 'AMapNavi'
 end

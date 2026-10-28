@@ -49,6 +49,10 @@ extension LocationProvider: CLLocationManagerDelegate {
         location = loc
         // GPS 速度为负值时表示无效（刚启动/室内）
         speedKmh = max(0, loc.speed * 3.6)
+        // 移动中优先用 GPS 航向（真实行进方向），静止时才用磁力计
+        if loc.speed > 1.0, loc.course >= 0 {
+            heading = loc.course
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
