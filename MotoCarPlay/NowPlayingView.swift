@@ -73,5 +73,6 @@ struct NowPlayingView: View {
                 .padding(.bottom, 44)
             }
         }
+        .onAppear { music.start() }
     }
 }

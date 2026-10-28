@@ -78,6 +78,11 @@ struct HomeView: View {
             }
         }
         .onAppear { location.start() }
+        .task {
+            // 等首帧渲染完再碰媒体库，避免启动期权限检查导致闪退
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            music.start()
+        }
         .fullScreenCover(isPresented: $showNav) { NavigateView() }
         .fullScreenCover(isPresented: $showMusic) { NowPlayingView() }
         .sheet(isPresented: $showSettings) { SettingsView() }
