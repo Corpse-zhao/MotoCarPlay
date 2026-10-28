@@ -7,6 +7,8 @@ struct SettingsView: View {
     @AppStorage("musicSource") private var musicSourceRaw = MusicSource.qq.rawValue
     @AppStorage(FloatingLauncher.enabledKey) private var floatingQishui = true
     @AppStorage("showStatusBar") private var showStatusBar = false
+    @State private var showDiag = false
+    @State private var diagText = ""
 
     var body: some View {
         NavigationStack {
@@ -24,6 +26,17 @@ struct SettingsView: View {
                         Text("开启后：点多功能页的「音乐」方块，或者在地图页顶部右角往左滑，都会直接拉起汽水音乐，并通知分屏插件 floatingView 以浮窗方式打开（等同你长按锁屏键的动作）。长按「音乐」方块可进入本 App 的音乐页。")
                             .font(.system(size: 12))
                             .foregroundColor(.white.opacity(0.55))
+                        Button {
+                            diagText = FloatingLauncher.diagnosis()
+                            showDiag = true
+                        } label: {
+                            HStack {
+                                Text("诊断汽水音乐")
+                                Spacer()
+                                Image(systemName: "stethoscope")
+                                    .foregroundColor(.white.opacity(0.45))
+                            }
+                        }
                     }
 
                     Section("显示") {
@@ -56,7 +69,7 @@ struct SettingsView: View {
 
                     Section {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("MotoCarPlay v0.6.0")
+                            Text("MotoCarPlay v0.6.1")
                                 .font(.system(size: 15))
                                 .foregroundColor(.white.opacity(0.7))
                             Text("地图主界面 + 多功能页 · 全部功能在 App 内完成")
@@ -83,6 +96,11 @@ struct SettingsView: View {
             .onAppear {
                 UIApplication.shared.isIdleTimerDisabled = keepScreenOn
                 StatusBar.apply(visible: showStatusBar)
+            }
+            .alert("汽水音乐诊断", isPresented: $showDiag) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text(diagText)
             }
         }
         .preferredColorScheme(.dark)
