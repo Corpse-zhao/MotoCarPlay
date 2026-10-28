@@ -28,11 +28,6 @@ struct AppsPageView: View {
                                      Color(red: 0.08, green: 0.38, blue: 0.78)],
                             size: 88, action: onMap)
 
-                    AppIcon(title: "导航", symbol: "arrow.triangle.turn.up.right.circle.fill",
-                            colors: [Color(red: 0.20, green: 0.72, blue: 0.45),
-                                     Color(red: 0.10, green: 0.48, blue: 0.30)],
-                            size: 88, action: onNavigate)
-
                     AppIcon(title: "电话", symbol: "phone.fill",
                             colors: [Color(red: 0.30, green: 0.85, blue: 0.42),
                                      Color(red: 0.10, green: 0.60, blue: 0.28)],
