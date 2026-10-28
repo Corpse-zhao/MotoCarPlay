@@ -44,7 +44,7 @@ struct AMapCanvas: UIViewRepresentable {
                 if route.count > 1 {
                     var coords = route
                     if let line = MAPolyline(coordinates: &coords, count: UInt(coords.count)) {
-                        map.addOverlay(line)
+                        map.add(line)
                         map.setVisibleMapRect(
                             line.boundingMapRect,
                             edgePadding: UIEdgeInsets(top: 150, left: 160, bottom: 150, right: 110),
@@ -81,8 +81,6 @@ struct AMapCanvas: UIViewRepresentable {
             let renderer = MAPolylineRenderer(polyline: line)
             renderer?.strokeColor = UIColor(Theme.accent)
             renderer?.lineWidth = 8
-            renderer?.lineJoin = .round
-            renderer?.lineCap = .round
             return renderer
         }
 

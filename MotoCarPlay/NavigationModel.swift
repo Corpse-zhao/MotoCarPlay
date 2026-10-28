@@ -18,7 +18,7 @@ final class NavigationModel: NSObject, ObservableObject {
     @Published var isRerouting = false
     @Published var searchFailed = false
 
-    private let search = AMapSearchAPI()
+    private let search: AMapSearchAPI? = AMapSearchAPI()
     private var cancellables = Set<AnyCancellable>()
     private var lastStepIndex = 0
     private var lastRerouteAt = Date.distantPast
@@ -26,7 +26,7 @@ final class NavigationModel: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        search.delegate = self
+        search?.delegate = self
         LocationProvider.shared.$location
             .sink { [weak self] loc in self?.onLocation(loc) }
             .store(in: &cancellables)
@@ -48,7 +48,7 @@ final class NavigationModel: NSObject, ObservableObject {
             request.location = AMapGeoPoint.from(loc.coordinate)
             request.sortrule = 1  // 按距离排序
         }
-        search.aMapPOIKeywordsSearch(request)
+        search?.aMapPOIKeywordsSearch(request)
     }
 
     // MARK: - 路线
@@ -80,7 +80,7 @@ final class NavigationModel: NSObject, ObservableObject {
         request.destination = AMapGeoPoint.from(destination)
         request.strategy = 0        // 速度优先
         request.requireExtension = true
-        search.aMapDrivingRouteSearch(request)
+        search?.aMapDrivingRouteSearch(request)
     }
 
     func cancel() {
