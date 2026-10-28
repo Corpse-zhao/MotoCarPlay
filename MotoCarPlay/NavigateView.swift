@@ -51,7 +51,11 @@ struct NavigateView: View {
     @StateObject private var model = NavigationModel()
     @StateObject private var location = LocationProvider.shared
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("navTarget") private var navTargetRaw = NavTarget.amap.rawValue
     @State private var query = ""
+    @State private var toast = ""
+
+    private var navTarget: NavTarget { NavTarget(rawValue: navTargetRaw) ?? .amap }
 
     var body: some View {
         ZStack {
@@ -80,8 +84,41 @@ struct NavigateView: View {
                 }
                 .padding(14)
             }
+
+            if !toast.isEmpty {
+                VStack {
+                    Spacer()
+                    Text(toast)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(Color.black.opacity(0.75)))
+                        .padding(.bottom, 130)
+                }
+                .transition(.opacity)
+            }
         }
         .onAppear { location.start() }
+    }
+
+    /// 搜索结果的启动逻辑：默认交给高德，未安装则回落内置地图
+    private func start(_ item: MKMapItem) {
+        if navTarget.handoff(to: item) {
+            dismiss()
+            return
+        }
+        if navTarget == .amap {
+            showToast("未安装高德地图，已使用内置地图")
+        }
+        model.setDestination(item)
+    }
+
+    private func showToast(_ text: String) {
+        toast = text
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            if toast == text { toast = "" }
+        }
     }
 
     // MARK: - 横幅
@@ -96,6 +133,15 @@ struct NavigateView: View {
                     .font(.system(size: 17, weight: .medium))
                     .foregroundColor(Theme.textPrimary)
                     .lineLimit(2)
+                Spacer(minLength: 8)
+                if location.speedKmh > 1 {
+                    Text("\(Int(location.speedKmh))")
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundColor(Theme.textPrimary)
+                    + Text(" km/h")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.textSecondary)
+                }
             }
         }
         .padding(14)
@@ -114,6 +160,22 @@ struct NavigateView: View {
                     .foregroundColor(Theme.textSecondary)
             }
             Spacer()
+            if let dest = model.destination {
+                Button {
+                    _ = NavTarget.amap.handoff(to: dest)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.up.right.square")
+                        Text("高德")
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 11)
+                    .background(Capsule().fill(Color(red: 0.18, green: 0.62, blue: 0.98)))
+                }
+                .buttonStyle(CardButton())
+            }
             Button {
                 model.cancel()
             } label: {
@@ -161,7 +223,7 @@ struct NavigateView: View {
                 VStack(spacing: 0) {
                     ForEach(model.searchResults, id: \.self) { item in
                         Button {
-                            model.setDestination(item)
+                            start(item)
                         } label: {
                             HStack {
                                 Image(systemName: "mappin.circle.fill")

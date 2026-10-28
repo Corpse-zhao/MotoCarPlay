@@ -21,23 +21,33 @@ targets:
       properties:
         UILaunchScreen: {}
         CFBundleDisplayName: 摩托CarPlay
-        CFBundleShortVersionString: "0.1.1"
-        CFBundleVersion: "2"
+        CFBundleShortVersionString: "0.2.0"
+        CFBundleVersion: "3"
         NSLocationWhenInUseUsageDescription: 需要定位以显示车速、航向和骑行导航。
         NSLocationAlwaysAndWhenInUseUsageDescription: 骑行中持续显示车速和导航指引。
         NSAppleMusicUsageDescription: 需要读取系统正在播放的音乐，以便在车机界面上显示和控制。
+        NSContactsUsageDescription: 需要读取通讯录，以便在车机界面上选择联系人拨打电话。
         LSRequiresIPhoneOS: true
+        LSApplicationQueriesSchemes:
+          - iosamap
+          - baidumap
+          - qqmap
+          - amapuri
+          - music
+          - orpheus
+          - qqmusic
+          - spotify
+          - kugou
         UIBackgroundModes:
           - audio
           - location
         UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: false
         UISupportedInterfaceOrientations:
-          - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         UISupportedInterfaceOrientations~ipad:
-          - UIInterfaceOrientationPortrait
-          - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         MinimumOSVersion: "16.0"

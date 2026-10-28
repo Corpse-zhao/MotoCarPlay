@@ -13,6 +13,16 @@ enum Theme {
     static let iconCorner: CGFloat = 18
 }
 
+/// 触感反馈 + 按压缩放，模拟 CarPlay 图标手感
+struct CardButton: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 /// 可复用的大按钮卡片（戴手套也能按）
 struct BigCard: View {
     let title: String

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct MotoCarPlayApp: App {
@@ -7,6 +8,14 @@ struct MotoCarPlayApp: App {
             HomeView()
                 .preferredColorScheme(.dark)
                 .persistentSystemOverlays(.hidden)
+                .onAppear { Orientation.lockLandscape() }
         }
+    }
+}
+
+enum Orientation {
+    static func lockLandscape() {
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight))
     }
 }
