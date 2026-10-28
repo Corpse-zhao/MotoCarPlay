@@ -1,12 +1,13 @@
 import Foundation
-import MapKit
+import CoreLocation
 import Combine
+import AMapSearchKit
 
-/// 搜索目的地 → 规划路线 → 实时转向指引 + 偏航重算
+/// 高德 POI 搜索 → 驾车路径规划 → 实时转向指引 + 偏航重算
 final class NavigationModel: NSObject, ObservableObject {
-    @Published var searchResults: [MKMapItem] = []
-    @Published var route: MKRoute?
-    @Published var destination: MKMapItem?
+    @Published var pois: [POIResult] = []
+    @Published var route: RouteData?
+    @Published var destination: RouteDestination?
 
     @Published var currentSymbol = "arrow.up"
     @Published var currentInstruction = ""
@@ -15,7 +16,9 @@ final class NavigationModel: NSObject, ObservableObject {
     @Published var remainingDistance: CLLocationDistance = 0
     @Published var remainingTime: TimeInterval = 0
     @Published var isRerouting = false
+    @Published var searchFailed = false
 
+    private let search = AMapSearchAPI()
     private var cancellables = Set<AnyCancellable>()
     private var lastStepIndex = 0
     private var lastRerouteAt = Date.distantPast
@@ -23,56 +26,61 @@ final class NavigationModel: NSObject, ObservableObject {
 
     override init() {
         super.init()
+        search.delegate = self
         LocationProvider.shared.$location
             .sink { [weak self] loc in self?.onLocation(loc) }
             .store(in: &cancellables)
     }
 
-    // MARK: - 搜索与路线
+    // MARK: - 搜索
 
-    func search(_ query: String, near location: CLLocation?) {
-        guard !query.isEmpty else { return }
-        let request = MKLocalSearch.Request()
-        request.naturalLanguageQuery = query
+    func searchPOI(_ keyword: String, near location: CLLocation?) {
+        let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        searchFailed = false
+
+        let request = AMapPOIKeywordsSearchRequest()
+        request.keywords = trimmed
+        request.cityLimit = false
+        request.offset = 20
+        request.page = 1
         if let loc = location {
-            request.region = MKCoordinateRegion(
-                center: loc.coordinate,
-                latitudinalMeters: 30000, longitudinalMeters: 30000)
+            request.location = AMapGeoPoint.from(loc.coordinate)
+            request.sortrule = 1  // 按距离排序
         }
-        MKLocalSearch(request: request).start { [weak self] resp, _ in
-            DispatchQueue.main.async {
-                self?.searchResults = resp?.mapItems ?? []
-            }
-        }
+        search.aMapPOIKeywordsSearch(request)
     }
 
-    func setDestination(_ item: MKMapItem) {
-        destination = item
-        searchResults = []
+    // MARK: - 路线
+
+    func setDestination(_ poi: POIResult) {
+        finishDestination(RouteDestination(name: poi.name, coordinate: poi.coordinate))
+    }
+
+    func setDestination(name: String, coordinate: CLLocationCoordinate2D) {
+        finishDestination(RouteDestination(name: name, coordinate: coordinate))
+    }
+
+    private func finishDestination(_ dest: RouteDestination) {
+        destination = dest
+        pois = []
         hasGuidance = false
-        guard let from = LocationProvider.shared.location else { return }
-        calculateRoute(to: item, from: from)
+        guard let loc = LocationProvider.shared.location else {
+            currentSymbol = "exclamationmark.triangle"
+            currentInstruction = "还没拿到定位，稍后再试"
+            return
+        }
+        requestRoute(from: loc.coordinate, to: dest.coordinate)
     }
 
-    private func calculateRoute(to item: MKMapItem, from location: CLLocation) {
-        let request = MKDirections.Request()
-        request.source = MKMapItem(placemark: MKPlacemark(coordinate: location.coordinate))
-        request.destination = item
-        request.transportType = .automobile
-        MKDirections(request: request).calculate { [weak self] resp, error in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.isRerouting = false
-                if let route = resp?.routes.first {
-                    self.route = route
-                    self.initializeGuidance()
-                } else if self.route == nil {
-                    self.currentSymbol = "exclamationmark.triangle"
-                    self.currentInstruction = "路线规划失败：\(error?.localizedDescription ?? "未知错误")"
-                }
-                // 偏航重算失败时保留旧路线继续用
-            }
-        }
+    private func requestRoute(from origin: CLLocationCoordinate2D,
+                              to destination: CLLocationCoordinate2D) {
+        let request = AMapDrivingRouteSearchRequest()
+        request.origin = AMapGeoPoint.from(origin)
+        request.destination = AMapGeoPoint.from(destination)
+        request.strategy = 0        // 速度优先
+        request.requireExtension = true
+        search.aMapDrivingRouteSearch(request)
     }
 
     func cancel() {
@@ -89,24 +97,22 @@ final class NavigationModel: NSObject, ObservableObject {
 
     // MARK: - 指引
 
-    /// 路线算完立即初始化指引（不等 GPS 移动），静止时也能看到第一步
     private func initializeGuidance() {
         guard let route = route else { return }
         remainingDistance = route.distance
-        remainingTime = route.expectedTravelTime
+        remainingTime = route.duration
         lastStepIndex = 0
         hasGuidance = true
 
-        if let first = route.steps.first(where: { !$0.instructions.isEmpty }) {
-            currentSymbol = Self.symbol(for: first.instructions)
-            currentInstruction = first.instructions
+        if let first = route.steps.first(where: { !$0.instruction.isEmpty }) {
+            currentSymbol = Self.symbol(for: first.instruction)
+            currentInstruction = first.instruction
             distanceToManeuver = first.distance
         } else {
             currentSymbol = "arrow.up"
             currentInstruction = "沿路线出发"
             distanceToManeuver = route.distance
         }
-        // 用最后一次定位先算一遍，不必等下一次 GPS 更新
         if let loc = LocationProvider.shared.location {
             updateGuidance(with: loc)
         }
@@ -115,26 +121,24 @@ final class NavigationModel: NSObject, ObservableObject {
     private func onLocation(_ loc: CLLocation?) {
         guard let loc, let route = route else { return }
 
-        // 偏航检测：偏离路线超过 80m 触发重算（10 秒冷却）
         if hasGuidance, let dest = destination,
-           distance(from: loc, to: route.polyline) > 80,
+           distance(from: loc.coordinate, to: route.coordinates) > 80,
            Date().timeIntervalSince(lastRerouteAt) > 10 {
             lastRerouteAt = Date()
             isRerouting = true
-            calculateRoute(to: dest, from: loc)
+            requestRoute(from: loc.coordinate, to: dest.coordinate)
             return
         }
         updateGuidance(with: loc)
     }
 
     private func updateGuidance(with loc: CLLocation) {
-        guard let route = route else { return }
+        guard let route = route, !route.steps.isEmpty else { return }
 
-        // 找到当前所在步骤（离该步骤折线最近）
-        var bestIndex = lastStepIndex
+        var bestIndex = min(lastStepIndex, route.steps.count - 1)
         var bestDist = Double.greatestFiniteMagnitude
-        for (i, step) in route.steps.enumerated() where !step.instructions.isEmpty {
-            let d = distance(from: loc, to: step.polyline)
+        for (i, step) in route.steps.enumerated() where !step.coordinates.isEmpty {
+            let d = distance(from: loc.coordinate, to: step.coordinates)
             if d < bestDist {
                 bestDist = d
                 bestIndex = i
@@ -143,29 +147,25 @@ final class NavigationModel: NSObject, ObservableObject {
         lastStepIndex = bestIndex
 
         let step = route.steps[bestIndex]
-        currentInstruction = step.instructions.isEmpty ? "沿当前道路行驶" : step.instructions
+        currentInstruction = step.instruction.isEmpty ? "沿当前道路行驶" : step.instruction
         currentSymbol = Self.symbol(for: currentInstruction)
-        distanceToManeuver = max(0, distanceAlongPolyline(step.polyline, from: loc))
+        distanceToManeuver = max(0, distanceAlong(step.coordinates, from: loc.coordinate))
 
-        // 下一步预告
-        if let next = route.steps[(bestIndex + 1)...].first(where: { !$0.instructions.isEmpty }) {
-            nextInstruction = next.instructions
+        if let next = route.steps[(bestIndex + 1)...].first(where: { !$0.instruction.isEmpty }) {
+            nextInstruction = next.instruction
         } else {
             nextInstruction = ""
         }
 
-        // 剩余里程 = 当前步骤剩余 + 之后所有步骤长度
         var remain = max(0, step.distance - distanceToManeuver)
         for s in route.steps[(bestIndex + 1)...] {
             remain += s.distance
         }
         remainingDistance = remain
         if route.distance > 0 {
-            remainingTime = route.expectedTravelTime * (remain / route.distance)
+            remainingTime = route.duration * (remain / route.distance)
         }
     }
-
-    // MARK: - 转向图标
 
     static func symbol(for instruction: String) -> String {
         if instruction.contains("掉头") { return "arrow.uturn.left" }
@@ -178,29 +178,31 @@ final class NavigationModel: NSObject, ObservableObject {
         return "arrow.up"
     }
 
-    // MARK: - 几何工具
+    // MARK: - 几何
 
-    private func distance(from loc: CLLocation, to line: MKPolyline) -> CLLocationDistance {
-        distanceAlongPolyline(line, from: loc, measureWhole: true)
+    private func distance(from point: CLLocationCoordinate2D,
+                          to line: [CLLocationCoordinate2D]) -> CLLocationDistance {
+        measure(point, line, measureWhole: true)
     }
 
-    private func distanceAlongPolyline(_ line: MKPolyline, from loc: CLLocation,
-                                       measureWhole: Bool = false) -> CLLocationDistance {
-        let pts = line.points()
-        let n = line.pointCount
-        guard n > 1 else { return 0 }
+    private func distanceAlong(_ line: [CLLocationCoordinate2D],
+                               from point: CLLocationCoordinate2D) -> CLLocationDistance {
+        measure(point, line, measureWhole: false)
+    }
 
+    private func measure(_ point: CLLocationCoordinate2D,
+                         _ line: [CLLocationCoordinate2D],
+                         measureWhole: Bool) -> CLLocationDistance {
+        guard line.count > 1 else { return 0 }
         var best = Double.greatestFiniteMagnitude
         var bestAlong: CLLocationDistance = 0
         var along: CLLocationDistance = 0
 
-        for i in 0..<(n - 1) {
-            let a = CLLocation(latitude: pts[i].coordinate.latitude,
-                               longitude: pts[i + 0].coordinate.longitude)
-            let b = CLLocation(latitude: pts[i + 1].coordinate.latitude,
-                               longitude: pts[i + 1].coordinate.longitude)
+        for i in 0..<(line.count - 1) {
+            let a = CLLocation(latitude: line[i].latitude, longitude: line[i].longitude)
+            let b = CLLocation(latitude: line[i + 1].latitude, longitude: line[i + 1].longitude)
             let segLen = a.distance(from: b)
-            let (projDist, projAlong) = project(point: loc, onSegmentFrom: a, to: b)
+            let (projDist, projAlong) = project(point: point, from: a, to: b)
             if projDist < best {
                 best = projDist
                 bestAlong = along + projAlong
@@ -210,17 +212,77 @@ final class NavigationModel: NSObject, ObservableObject {
         return measureWhole ? best : bestAlong
     }
 
-    private func project(point p: CLLocation, onSegmentFrom a: CLLocation,
-                         to b: CLLocation) -> (CLLocationDistance, CLLocationDistance) {
+    private func project(point: CLLocationCoordinate2D,
+                         from a: CLLocation, to b: CLLocation) -> (CLLocationDistance, CLLocationDistance) {
         let segLen = max(a.distance(from: b), 0.0001)
         let bearingAB = a.coordinate.bearing(to: b.coordinate)
-        let bearingAP = a.coordinate.bearing(to: p.coordinate)
+        let bearingAP = a.coordinate.bearing(to: point)
+        let p = CLLocation(latitude: point.latitude, longitude: point.longitude)
         let ap = a.distance(from: p)
         let angleDiff = (bearingAP - bearingAB) * .pi / 180
         let t = max(0, min(segLen, ap * cos(angleDiff)))
         let projCoord = a.coordinate.coordinate(at: t, bearing: bearingAB)
         let proj = CLLocation(latitude: projCoord.latitude, longitude: projCoord.longitude)
         return (p.distance(from: proj), t)
+    }
+}
+
+// MARK: - 高德搜索回调
+
+extension NavigationModel: AMapSearchDelegate {
+    func onPOISearchDone(_ request: AMapPOISearchBaseRequest!, response: AMapPOISearchResponse!) {
+        guard let response, request is AMapPOIKeywordsSearchRequest else { return }
+        let list = response.pois ?? []
+        DispatchQueue.main.async {
+            self.pois = list.map {
+                POIResult(name: $0.name ?? "未知地点",
+                          address: $0.address ?? "",
+                          coordinate: $0.location.clCoordinate,
+                          distance: Double($0.distance))
+            }
+            self.searchFailed = list.isEmpty
+        }
+    }
+
+    func onRouteSearchDone(_ request: AMapRouteSearchBaseRequest!, response: AMapRouteSearchResponse!) {
+        DispatchQueue.main.async {
+            self.isRerouting = false
+            guard let path = response?.route?.paths?.first else {
+                if self.route == nil {
+                    self.currentSymbol = "exclamationmark.triangle"
+                    self.currentInstruction = "路径规划失败，换个目的地试试"
+                }
+                return
+            }
+
+            let steps: [RouteStep] = (path.steps ?? []).map { step in
+                RouteStep(instruction: step.instruction ?? "",
+                          distance: CLLocationDistance(step.distance),
+                          coordinates: (step.polyline ?? "").amapCoordinates)
+            }
+
+            var all: [CLLocationCoordinate2D] = []
+            for s in steps { all.append(contentsOf: s.coordinates) }
+            if all.isEmpty {
+                all = (path.polyline ?? "").amapCoordinates
+            }
+
+            self.route = RouteData(distance: CLLocationDistance(path.distance),
+                                   duration: TimeInterval(path.duration),
+                                   coordinates: all,
+                                   steps: steps)
+            self.initializeGuidance()
+        }
+    }
+
+    func aMapSearchRequest(_ request: Any!, didFailWithError error: Error!) {
+        DispatchQueue.main.async {
+            self.isRerouting = false
+            if self.route == nil {
+                self.currentSymbol = "exclamationmark.triangle"
+                self.currentInstruction = "高德接口返回错误：\(error?.localizedDescription ?? "未知")"
+            }
+        }
     }
 }
 

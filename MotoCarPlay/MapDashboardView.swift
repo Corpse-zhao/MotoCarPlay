@@ -1,55 +1,106 @@
 import SwiftUI
-import MapKit
+import UIKit
+import CoreLocation
+import MAMapKit
 
-/// 地图画布：路线折线 + 跟随定位
-struct MapCanvas: UIViewRepresentable {
-    let route: MKRoute?
-    let destination: MKMapItem?
+/// 高德地图画布（MAMapView）：路线折线 + 目的地标记 + 跟随定位
+struct AMapCanvas: UIViewRepresentable {
+    let routeCoordinates: [CLLocationCoordinate2D]
+    let destination: CLLocationCoordinate2D?
     let navigating: Bool
 
-    func makeUIView(context: Context) -> MKMapView {
-        let map = MKMapView()
+    func makeUIView(context: Context) -> MAMapView {
+        let map = MAMapView(frame: .zero)
         map.delegate = context.coordinator
         map.showsUserLocation = true
-        map.userTrackingMode = navigating ? .followWithHeading : .follow
-        map.isRotateEnabled = false
-        map.pointOfInterestFilter = .excludingAll
-        map.overrideUserInterfaceStyle = .dark
-        map.tintColor = UIColor(Theme.accent)
+        map.userTrackingMode = .follow
+        map.mapType = .standard
+        map.isShowTraffic = false
+        map.showsCompass = false
+        map.showsScale = false
+        map.zoomLevel = 16
         return map
     }
 
-    func updateUIView(_ map: MKMapView, context: Context) {
-        map.removeOverlays(map.overlays)
-        map.removeAnnotations(map.annotations.filter { !($0 is MKUserLocation) })
-
-        if let route = route {
-            map.addOverlay(route.polyline, level: .aboveRoads)
-            map.setVisibleMapRect(
-                route.polyline.boundingMapRect.insetBy(dx: -120, dy: -120),
-                edgePadding: UIEdgeInsets(top: 150, left: 160, bottom: 140, right: 120),
-                animated: true)
-        }
-        if let placemark = destination?.placemark {
-            map.addAnnotation(MKPlacemark(placemark: placemark))
-        }
+    func updateUIView(_ map: MAMapView, context: Context) {
+        context.coordinator.sync(map: map,
+                                 route: routeCoordinates,
+                                 destination: destination)
         map.userTrackingMode = navigating ? .followWithHeading : .follow
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    final class Coordinator: NSObject, MKMapViewDelegate {
-        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            let renderer = MKPolylineRenderer(overlay: overlay)
-            renderer.strokeColor = UIColor(Theme.accent)
-            renderer.lineWidth = 8
-            renderer.lineCap = .round
+    final class Coordinator: NSObject, MAMapViewDelegate {
+        private var lastRouteCount = -1
+        private var lastDestination: CLLocationCoordinate2D?
+
+        func sync(map: MAMapView,
+                  route: [CLLocationCoordinate2D],
+                  destination: CLLocationCoordinate2D?) {
+            if route.count != lastRouteCount {
+                lastRouteCount = route.count
+                map.removeOverlays(map.overlays)
+                if route.count > 1 {
+                    var coords = route
+                    if let line = MAPolyline(coordinates: &coords, count: UInt(coords.count)) {
+                        map.addOverlay(line)
+                        map.setVisibleMapRect(
+                            line.boundingMapRect,
+                            edgePadding: UIEdgeInsets(top: 150, left: 160, bottom: 150, right: 110),
+                            animated: true)
+                    }
+                }
+            }
+
+            if let destination {
+                let changed = lastDestination == nil
+                    || abs((lastDestination?.latitude ?? 0) - destination.latitude) > 0.000001
+                    || abs((lastDestination?.longitude ?? 0) - destination.longitude) > 0.000001
+                if changed {
+                    lastDestination = destination
+                    removePins(on: map)
+                    let annotation = MAPointAnnotation()
+                    annotation.coordinate = destination
+                    annotation.title = "目的地"
+                    map.addAnnotation(annotation)
+                }
+            } else if lastDestination != nil {
+                lastDestination = nil
+                removePins(on: map)
+            }
+        }
+
+        private func removePins(on map: MAMapView) {
+            let pins = (map.annotations ?? []).compactMap { $0 as? MAPointAnnotation }
+            map.removeAnnotations(pins)
+        }
+
+        func mapView(_ mapView: MAMapView!, rendererFor overlay: MAOverlay!) -> MAOverlayRenderer! {
+            guard let line = overlay as? MAPolyline else { return nil }
+            let renderer = MAPolylineRenderer(polyline: line)
+            renderer?.strokeColor = UIColor(Theme.accent)
+            renderer?.lineWidth = 8
+            renderer?.lineJoin = .round
+            renderer?.lineCap = .round
             return renderer
+        }
+
+        func mapView(_ mapView: MAMapView!, viewFor annotation: MAAnnotation!) -> MAAnnotationView! {
+            guard annotation is MAPointAnnotation else { return nil }
+            let identifier = "dest-pin"
+            var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MAPinAnnotationView
+            if view == nil {
+                view = MAPinAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            }
+            view?.pinColor = .red
+            view?.canShowCallout = false
+            return view
         }
     }
 }
 
-/// 主界面：全屏地图 + 车速/方向 + 导航指引，左边缘右滑进多功能页
+/// 主界面：高德地图 + 车速/方向 + 导航指引，左边缘右滑进多功能页
 struct MapDashboardView: View {
     @StateObject private var model = NavigationModel()
     @StateObject private var location = LocationProvider.shared
@@ -60,7 +111,9 @@ struct MapDashboardView: View {
 
     var body: some View {
         ZStack {
-            MapCanvas(route: model.route, destination: model.destination, navigating: model.route != nil)
+            AMapCanvas(routeCoordinates: model.route?.coordinates ?? [],
+                       destination: model.destination?.coordinate,
+                       navigating: model.route != nil)
                 .ignoresSafeArea()
 
             // 左边缘右滑热区 → 多功能页
@@ -99,7 +152,7 @@ struct MapDashboardView: View {
 
                 if model.route != nil {
                     guidanceBanner
-                        .frame(maxWidth: 620)
+                        .frame(maxWidth: 640)
                 }
 
                 Spacer(minLength: 0)
@@ -207,7 +260,7 @@ struct MapDashboardView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 12)
-                    .frame(maxWidth: 420)
+                    .frame(maxWidth: 440)
                     .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(Color.black.opacity(0.72)))
                 }
@@ -219,7 +272,7 @@ struct MapDashboardView: View {
     }
 
     private func formatDistance(_ d: CLLocationDistance) -> String {
-        if d < 0 { return "--" }
+        if d <= 0 { return "--" }
         if d < 1000 { return "\(Int(d / 10) * 10) m" }
         return String(format: "%.1f km", d / 1000)
     }
@@ -294,7 +347,7 @@ struct SpeedCard: View {
     }
 }
 
-// MARK: - 搜索面板
+// MARK: - 搜索面板（高德 POI）
 
 struct SearchSheet: View {
     @ObservedObject var model: NavigationModel
@@ -310,33 +363,40 @@ struct SearchSheet: View {
                     HStack(spacing: 10) {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.white.opacity(0.5))
-                        TextField("输入目的地，如：加油站", text: $query)
+                        TextField("输入目的地，如：加油站 / 星巴克", text: $query)
                             .textFieldStyle(.plain)
                             .font(.system(size: 17))
                             .foregroundColor(.white)
                             .focused($focused)
-                            .onSubmit { model.search(query, near: LocationProvider.shared.location) }
+                            .submitLabel(.search)
+                            .onSubmit { runSearch() }
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                     .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(Color.white.opacity(0.08)))
 
+                    Button("搜索") { runSearch() }
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Theme.accent)
+
                     Button("取消") { dismiss() }
                         .font(.system(size: 15))
                         .foregroundColor(.white.opacity(0.7))
                 }
 
-                if model.searchResults.isEmpty {
-                    Text("搜到目的地后直接在本 App 内出路线与转向提示，不会跳出应用")
+                if model.pois.isEmpty {
+                    Text(model.searchFailed
+                         ? "没搜到结果，换个关键词试试"
+                         : "高德 POI 搜索：搜到后直接在本 App 内出路线与转向提示")
                         .font(.system(size: 12))
                         .foregroundColor(.white.opacity(0.45))
                 } else {
                     ScrollView {
                         VStack(spacing: 8) {
-                            ForEach(model.searchResults, id: \.self) { item in
+                            ForEach(model.pois) { poi in
                                 Button {
-                                    model.setDestination(item)
+                                    model.setDestination(poi)
                                     dismiss()
                                 } label: {
                                     HStack(spacing: 12) {
@@ -344,15 +404,15 @@ struct SearchSheet: View {
                                             .font(.system(size: 20))
                                             .foregroundColor(Theme.accent)
                                         VStack(alignment: .leading, spacing: 2) {
-                                            Text(item.name ?? "未知地点")
+                                            Text(poi.name)
                                                 .font(.system(size: 16, weight: .medium))
                                                 .foregroundColor(.white)
-                                            if let addr = item.placemark.title {
-                                                Text(addr)
-                                                    .font(.system(size: 12))
-                                                    .foregroundColor(.white.opacity(0.5))
-                                                    .lineLimit(1)
-                                            }
+                                            Text(poi.address.isEmpty
+                                                 ? "距离 \(Int(poi.distance)) m"
+                                                 : "\(poi.address) · \(Int(poi.distance)) m")
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.white.opacity(0.5))
+                                                .lineLimit(1)
                                         }
                                         Spacer(minLength: 0)
                                     }
@@ -372,5 +432,9 @@ struct SearchSheet: View {
         }
         .preferredColorScheme(.dark)
         .onAppear { focused = true }
+    }
+
+    private func runSearch() {
+        model.searchPOI(query, near: LocationProvider.shared.location)
     }
 }

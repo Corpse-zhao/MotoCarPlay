@@ -18,9 +18,14 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen
 
+      - name: Install CocoaPods dependencies
+        run: |
+          pod install --repo-update || pod install
+          ls -la
+
       - name: Build (unsigned)
         run: |
-          xcodebuild -project MotoCarPlay.xcodeproj \
+          xcodebuild -workspace MotoCarPlay.xcworkspace \
             -scheme MotoCarPlay \
             -configuration Release \
             -sdk iphoneos \
@@ -32,12 +37,12 @@ jobs:
 
       - name: Ad-hoc sign for TrollStore
         run: |
+          find build/Build/Products -name "*.app" -maxdepth 3 -print
           APP=build/Build/Products/Release-iphoneos/MotoCarPlay.app
-          ls -la "$APP"
-          /usr/bin/codesign --force --sign - --timestamp=none "$APP" || echo "ad-hoc sign skipped"
+          /usr/bin/codesign --force --deep --sign - --timestamp=none "$APP" || echo "ad-hoc sign skipped"
           /usr/bin/codesign -dv "$APP" 2>&1 || true
 
-      - name: Package unsigned .app
+      - name: Package ipa
         run: |
           mkdir -p Payload
           cp -r build/Build/Products/Release-iphoneos/MotoCarPlay.app Payload/

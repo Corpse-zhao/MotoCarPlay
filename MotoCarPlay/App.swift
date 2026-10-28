@@ -3,6 +3,11 @@ import UIKit
 
 @main
 struct MotoCarPlayApp: App {
+    init() {
+        // 高德 Key + 隐私合规，必须在任何地图/搜索对象创建之前
+        AMapConfig.setup()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
