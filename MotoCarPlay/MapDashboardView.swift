@@ -10,7 +10,7 @@ struct AMapCanvas: UIViewRepresentable {
         let map = MAMapView(frame: .zero)
         map.showsUserLocation = true
         map.userTrackingMode = .followWithHeading
-        map.rotateEnabled = true
+        map.isRotateEnabled = true
         map.mapType = .standard
         map.isShowTraffic = false
         map.showsCompass = false

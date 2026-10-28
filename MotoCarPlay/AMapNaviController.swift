@@ -146,7 +146,7 @@ extension AMapNaviController: AMapNaviDriveManagerDelegate {
     }
 
     /// 导航语音播报文字回调（路况、转向、电子眼等），用系统 TTS 念出来
-    func driveManager(_ driveManager: AMapNaviDriveManager, playNaviSoundString soundString: String, soundStringType soundStringType: AMapNaviSoundType) {
+    func driveManager(_ driveManager: AMapNaviDriveManager, playNaviSound soundString: String, soundStringType soundStringType: AMapNaviSoundType) {
         let text = soundString
         DispatchQueue.main.async {
             self.speak(text)
