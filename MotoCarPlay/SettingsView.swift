@@ -23,7 +23,7 @@ struct SettingsView: View {
                         }
                         Toggle("浮窗打开汽水（配合分屏插件）", isOn: $floatingQishui)
                             .tint(Theme.accent)
-                        Text("开启后：点多功能页的「音乐」方块，或者在地图页顶部右角往左滑，都会直接拉起汽水音乐，并通知分屏插件 floatingView 以浮窗方式打开（等同你长按锁屏键的动作）。长按「音乐」方块可进入本 App 的音乐页。")
+                        Text("开启后：点多功能页的「音乐」方块，或者在地图页顶部右角往左滑，都会直接拉起汽水音乐，并给分屏插件 floatingView 发浮窗指令（对应它内部的 fv_openFloatingView_lastRun）。提示：先用 floatingView 手动浮窗打开一次汽水，建立「上次浮窗运行」记录后，这里触发会更稳。")
                             .font(.system(size: 12))
                             .foregroundColor(.white.opacity(0.55))
                         Button {
@@ -69,7 +69,7 @@ struct SettingsView: View {
 
                     Section {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("MotoCarPlay v0.6.2")
+                            Text("MotoCarPlay v0.6.3")
                                 .font(.system(size: 15))
                                 .foregroundColor(.white.opacity(0.7))
                             Text("地图主界面 + 多功能页 · 全部功能在 App 内完成")

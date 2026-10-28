@@ -3,19 +3,25 @@ import CoreFoundation
 
 /// 拉起汽水音乐（尽量配合分屏插件 floatingView 以浮窗方式打开）。
 ///
-/// 逆向结论（com.be-huge.floating-view，1.5.x / 1.6.x 同架构）：
-/// - 主体只注入 com.apple.springboard，没有注册 URL Scheme，沙盒 App 无法直接调它的浮窗 API
-/// - 它内部有一条 Darwin 通知 `com.be-huge.floating-view.shortcuts`（桌面长按图标"浮窗打开"走这条）
+/// 逆向结论（com.be-huge.floating-view 1.5.9 dylib）：
+/// - 主体只注入 com.apple.springboard，没有注册 URL Scheme
+/// - FVNotificationCenter 是它的事件总线，动作通知名以 fv_ 开头：
+///   fv_openFloatingView / fv_openFloatingView_toSide / fv_toggleMainFloatingAppDisplay /
+///   fv_closeMainFloatingApp / fv_openFloatingView_lastRun
+///   （`com.be-huge.floating-view.shortcuts` 只是桌面长按快捷菜单那条链路，v0.6.2 发它没反应）
 ///
-/// 拉起顺序（v0.6.2 修正）：
-/// 1. **按 bundle id 精确拉起**（com.soda.music / com.luna.music 逐个试）—— 唯一不会开错 App 的方式
-/// 2. 已安装列表里按名字「汽水」/ bundle id 含 soda、luna 模糊找一次（应对企业签名变体）
-/// 3. 最后才试汽水自己的 URL scheme
-/// ⚠️ 绝不能再放 snssdk1128:// —— 那是抖音（同属字节），v0.6.0 就是这么把抖音打开了的。
-/// 4. 打开成功后补一条 Darwin 通知，请求插件把当前 App 转成浮窗
+/// 拉起顺序（v0.6.3 修正）：
+/// 1. **按 bundle id 精确拉起**（com.soda.music 优先）—— 唯一不会开错 App 的方式
+/// 2. 打开成功后 post fv_openFloatingView_lastRun + fv_openFloatingView，请求浮窗展示
+/// ⚠️ 绝不能放 snssdk1128:// —— 那是抖音（同属字节），v0.6.0 就是这么把抖音打开了的。
 enum FloatingLauncher {
     static let enabledKey = "moto.floating.qishui.enabled"
-    private static let floatingNotify = "com.be-huge.floating-view.shortcuts"
+    /// floatingView 的动作通知（逆向 1.5.9 dylib 得出：FVNotificationCenter 事件总线，fv_ 前缀）
+    /// - fv_openFloatingView_lastRun：打开「上次浮窗运行的 App」
+    /// - fv_openFloatingView：打开浮窗
+    /// - fv_toggleMainFloatingAppDisplay：显示/隐藏主浮窗（不发，怕和打开动作相互抵消）
+    /// - fv_closeMainFloatingApp：关闭主浮窗（不需要）
+    private static let fvOpenNotifications = ["fv_openFloatingView_lastRun", "fv_openFloatingView"]
     /// 汽水音乐的 bundle id 候选：iOS 侧一般是 com.soda.music，安卓/部分版本是 com.luna.music。
     /// 不猜，逐个试，谁打开了算谁的。
     static let qishuiBundleIDs = ["com.soda.music", "com.luna.music"]
@@ -67,10 +73,12 @@ enum FloatingLauncher {
 
     private static func afterOpenFloating() {
         guard floatingEnabled else { return }
-        // 两次：App 刚切走时 SpringBoard 可能还没把前台切到汽水，晚一点再补一发
-        for delay in [0.6, 1.8] {
+        // 汽水刚切到前台需要一点时间，分两条通知错开发：
+        // 0.7s 试「上次浮窗运行的 App」，1.9s 再补一发通用的「打开浮窗」
+        for (index, name) in fvOpenNotifications.enumerated() {
+            let delay = 0.7 + Double(index) * 1.2
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                postDarwin(floatingNotify)
+                postDarwin(name)
             }
         }
     }
