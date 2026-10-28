@@ -1,5 +1,6 @@
 import Foundation
 import AMapNaviKit
+import AVFoundation
 import CoreLocation
 import Combine
 
@@ -17,6 +18,9 @@ final class AMapNaviController: NSObject, ObservableObject {
     private var driveView: AMapNaviDriveView?
     private var cruiseView: AMapNaviDriveView?
     private var routeReady = false
+
+    /// 语音播报：SDK 只回调文字，播报由本类用系统 TTS 合成
+    private let synthesizer = AVSpeechSynthesizer()
 
     private func setupIfNeeded() {
         guard driveManager == nil else { return }
@@ -84,9 +88,22 @@ final class AMapNaviController: NSObject, ObservableObject {
 
     func stop() {
         driveManager?.stopNavi()
+        synthesizer.stopSpeaking(at: .immediate)
         isNavigating = false
         calculating = false
         statusText = nil
+    }
+
+    /// 系统TTS播报导航语音（激活音频会话，压低音乐音量）
+    private func speak(_ text: String) {
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+        try? session.setActive(true)
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "zh-CN")
+        utterance.rate = 0.52
+        utterance.volume = 1.0
+        synthesizer.speak(utterance)
     }
 
     private func tryStart() {
@@ -125,6 +142,14 @@ extension AMapNaviController: AMapNaviDriveManagerDelegate {
     func driveManager(_ driveManager: AMapNaviDriveManager, onArrivedDestination NaviArrivedDestination: Int) {
         DispatchQueue.main.async {
             self.stop()
+        }
+    }
+
+    /// 导航语音播报文字回调（路况、转向、电子眼等），用系统 TTS 念出来
+    func driveManager(_ driveManager: AMapNaviDriveManager, playNaviSoundString soundString: String, soundStringType soundStringType: AMapNaviSoundType) {
+        let text = soundString
+        DispatchQueue.main.async {
+            self.speak(text)
         }
     }
 }

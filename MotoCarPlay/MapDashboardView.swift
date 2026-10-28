@@ -4,11 +4,13 @@ import CoreLocation
 import AMapNaviKit
 
 /// 高德地图画布（MAMapView，由 AMapNaviKit 透出）
+/// 车头朝上：地图随航向旋转，蓝点箭头始终指向上方（和高德地图 App 一致）
 struct AMapCanvas: UIViewRepresentable {
     func makeUIView(context: Context) -> MAMapView {
         let map = MAMapView(frame: .zero)
         map.showsUserLocation = true
-        map.userTrackingMode = .follow
+        map.userTrackingMode = .followWithHeading
+        map.rotateEnabled = true
         map.mapType = .standard
         map.isShowTraffic = false
         map.showsCompass = false
@@ -17,7 +19,12 @@ struct AMapCanvas: UIViewRepresentable {
         return map
     }
 
-    func updateUIView(_ map: MAMapView, context: Context) {}
+    func updateUIView(_ map: MAMapView, context: Context) {
+        // 防止被 SDK/其他状态复位后回不到车头朝上
+        if map.userTrackingMode != .followWithHeading {
+            map.userTrackingMode = .followWithHeading
+        }
+    }
 }
 
 /// 主界面：高德地图 + 车速/方向，左边缘右滑进多功能页
@@ -181,9 +188,13 @@ struct NaviScreen: View {
 }
 
 /// AMapNaviDriveView 容器：导航 UI 全部由高德 SDK 渲染
+/// showSettingView=false：隐藏 SDK 自带的"设置/退出"面板（点了没反应），统一用我们自己的结束导航按钮
 struct NaviDriveViewContainer: UIViewRepresentable {
     func makeUIView(context: Context) -> AMapNaviDriveView {
-        let view = AMapNaviDriveView(frame: .zero)
+        let config = AMapNaviDriveViewConfig()
+        config.showSettingView = false
+        config.showNaviPopTips = false
+        let view = AMapNaviDriveView(frame: .zero, viewConfig: config)
         AMapNaviController.shared.attach(view: view)
         return view
     }
@@ -225,10 +236,10 @@ struct SpeedCard: View {
 
             if let up = screenUpHeading {
                 HStack(spacing: 8) {
+                    // 箭头固定朝上：地图已随航向旋转，骑行方向永远是"屏幕前方"
                     Image(systemName: "location.north.fill")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(Theme.accent)
-                        .rotationEffect(.degrees(-up))
                     VStack(alignment: .leading, spacing: 0) {
                         Text(compassLabel(up))
                             .font(.system(size: 15, weight: .semibold))
@@ -261,6 +272,7 @@ struct SpeedCard: View {
 
 struct SearchSheet: View {
     @ObservedObject var model: NavigationModel
+    @ObservedObject private var history = SearchHistory.shared
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @FocusState private var focused: Bool
@@ -295,7 +307,74 @@ struct SearchSheet: View {
                         .foregroundColor(.white.opacity(0.7))
                 }
 
-                if model.pois.isEmpty {
+                if query.trimmingCharacters(in: .whitespaces).isEmpty && model.pois.isEmpty {
+                    // 搜索记录
+                    if history.records.isEmpty {
+                        Text("暂无搜索记录，选中目的地后直接进入高德导航（车头向上、路口大图）")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.45))
+                            .padding(.top, 4)
+                    } else {
+                        HStack {
+                            Text("搜索记录")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.6))
+                            Spacer()
+                            Button {
+                                history.clear()
+                            } label: {
+                                Label("清空", systemImage: "trash")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.white.opacity(0.45))
+                            }
+                        }
+                        ScrollView {
+                            VStack(spacing: 8) {
+                                ForEach(history.records) { record in
+                                    Button {
+                                        navigate(to: record.name,
+                                                 address: record.address,
+                                                 latitude: record.latitude,
+                                                 longitude: record.longitude)
+                                    } label: {
+                                        HStack(spacing: 12) {
+                                            Image(systemName: "clock.arrow.circlepath")
+                                                .font(.system(size: 18))
+                                                .foregroundColor(.white.opacity(0.5))
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(record.name)
+                                                    .font(.system(size: 16, weight: .medium))
+                                                    .foregroundColor(.white)
+                                                if !record.address.isEmpty {
+                                                    Text(record.address)
+                                                        .font(.system(size: 12))
+                                                        .foregroundColor(.white.opacity(0.5))
+                                                        .lineLimit(1)
+                                                }
+                                            }
+                                            Spacer(minLength: 0)
+                                            Image(systemName: "arrow.turn.up.right")
+                                                .font(.system(size: 13, weight: .semibold))
+                                                .foregroundColor(Theme.accent.opacity(0.8))
+                                        }
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 10)
+                                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(Color.white.opacity(0.06)))
+                                    }
+                                    .buttonStyle(CardButton())
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            history.remove(record)
+                                        } label: {
+                                            Label("删除这条记录", systemImage: "trash")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if model.pois.isEmpty {
                     Text(model.searchFailed
                          ? "没搜到结果，换个关键词试试"
                          : "选中目的地后直接进入高德导航（车头向上、路口大图）")
@@ -306,10 +385,10 @@ struct SearchSheet: View {
                         VStack(spacing: 8) {
                             ForEach(model.pois) { poi in
                                 Button {
-                                    dismiss()
-                                    AMapNaviController.shared.beginNavigation(
-                                        to: RouteDestination(name: poi.name,
-                                                             coordinate: poi.coordinate))
+                                    navigate(to: poi.name,
+                                             address: poi.address,
+                                             latitude: poi.coordinate.latitude,
+                                             longitude: poi.coordinate.longitude)
                                 } label: {
                                     HStack(spacing: 12) {
                                         Image(systemName: "mappin.circle.fill")
@@ -344,6 +423,16 @@ struct SearchSheet: View {
         }
         .preferredColorScheme(.dark)
         .onAppear { focused = true }
+    }
+
+    private func navigate(to name: String, address: String, latitude: Double, longitude: Double) {
+        history.add(name: name, address: address,
+                    coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
+        dismiss()
+        AMapNaviController.shared.beginNavigation(
+            to: RouteDestination(name: name,
+                                 coordinate: CLLocationCoordinate2D(latitude: latitude,
+                                                                    longitude: longitude)))
     }
 
     private func runSearch() {
