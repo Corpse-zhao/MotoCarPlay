@@ -15,9 +15,7 @@ final class MusicProvider: ObservableObject {
     @Published var elapsed: TimeInterval = 0
     @Published var duration: TimeInterval = 0
 
-    private override init() {
-        super.init()
-
+    private init() {
         let center = NotificationCenter.default
         center.publisher(for: .MPMusicPlayerControllerPlaybackStateDidChange, object: player)
             .sink { [weak self] _ in self?.syncPlayback() }
