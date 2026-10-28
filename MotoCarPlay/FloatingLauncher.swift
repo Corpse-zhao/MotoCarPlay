@@ -103,10 +103,25 @@ enum FloatingLauncher {
                                              nil, nil, true)
     }
 
-    /// 发分布式通知（可跨进程，带 userInfo 能力）
+    /// 发分布式通知（跨进程，四个参数得走 runtime——iOS 的 Swift overlay 没暴露这个类）
     private static func postDistributed(_ name: String) {
-        DistributedNotificationCenter.default().postNotificationName(
-            NSNotification.Name(name), object: nil, userInfo: nil, deliverImmediately: true)
+        guard let cls = NSClassFromString("NSDistributedNotificationCenter") as? NSObject.Type,
+              let center = cls.perform(NSSelectorFromString("defaultCenter"))?
+                .takeUnretainedValue() as? NSObject else { return }
+
+        let sel = NSSelectorFromString("postNotificationName:object:userInfo:deliverImmediately:")
+        if center.responds(to: sel) {
+            typealias Fn4 = @convention(c) (AnyObject, Selector, NSString, AnyObject?, NSDictionary?, Bool) -> Void
+            let fn = unsafeBitCast(center.method(for: sel), to: Fn4.self)
+            fn(center, sel, name as NSString, nil, nil, true)
+            return
+        }
+        let sel3 = NSSelectorFromString("postNotificationName:object:userInfo:")
+        if center.responds(to: sel3) {
+            typealias Fn3 = @convention(c) (AnyObject, Selector, NSString, AnyObject?, NSDictionary?) -> Void
+            let fn = unsafeBitCast(center.method(for: sel3), to: Fn3.self)
+            fn(center, sel3, name as NSString, nil, nil)
+        }
     }
 
     // MARK: - 私有 API（TrollStore / 越狱环境可用）
