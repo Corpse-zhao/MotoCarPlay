@@ -171,10 +171,16 @@ extension AMapNaviController: AMapNaviDriveManagerDelegate {
         }
     }
 
-    func driveManager(_ driveManager: AMapNaviDriveManager, onArrivedDestination NaviArrivedDestination: Int) {
+    /// 到达终点（11.x 真实回调名，不是 driveManager:onArrivedDestination:）
+    func driveManagerOnArrivedDestination(_ driveManager: AMapNaviDriveManager) {
         DispatchQueue.main.async {
             self.stop()
         }
+    }
+
+    /// 到达途经点
+    func driveManager(_ driveManager: AMapNaviDriveManager, onArrivedWayPoint wayPointIndex: Int32) {
+        // 途经点不停导航，继续前往终点
     }
 
     /// 导航语音播报文字回调（路况、转向、电子眼等），用系统 TTS 念出来
