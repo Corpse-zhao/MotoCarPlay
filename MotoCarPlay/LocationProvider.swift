@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import Combine
+import UIKit
 
 /// 定位与车速来源：全局单例，导航页与首页共用
 final class LocationProvider: NSObject, ObservableObject {
@@ -56,5 +57,19 @@ extension LocationProvider: CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         // 忽略瞬时错误，保持上次值
+    }
+}
+
+/// 罗盘修正：magnetometer 的 heading 是"手机顶部"指向，
+/// 横屏时屏幕朝向与手机顶部相差 ±90°，必须按界面方向补偿
+enum Compass {
+    static func screenUpOffset() -> Double {
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return 0 }
+        switch scene.interfaceOrientation {
+        case .landscapeRight: return 90    // UI landscapeRight = 手机逆时针横置（home 在右）
+        case .landscapeLeft: return 270    // UI landscapeLeft = 手机顺时针横置（home 在左）
+        case .portraitUpsideDown: return 180
+        default: return 0
+        }
     }
 }

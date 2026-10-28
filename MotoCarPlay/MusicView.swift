@@ -1,11 +1,11 @@
 import SwiftUI
 import WebKit
 import AVFoundation
+import MediaPlayer
 
 /// 内嵌网页版播放器状态
 final class WebMusicModel: ObservableObject {
     @Published var pageTitle = ""
-    @Published var progress: Double = 0
 
     weak var webView: WKWebView?
     private var timer: Timer?
@@ -30,25 +30,20 @@ final class WebMusicModel: ObservableObject {
             guard let self, let text = value as? String, !text.isEmpty else { return }
             DispatchQueue.main.async { self.pageTitle = text }
         }
-        webView?.evaluateJavaScript(
-            "(function(){var m=document.querySelector('audio,video');if(!m||!m.duration)return 0;return m.currentTime/m.duration})()"
-        ) { [weak self] value, _ in
-            guard let self, let ratio = value as? Double else { return }
-            DispatchQueue.main.async { self.progress = min(max(ratio, 0), 1) }
-        }
     }
 
     func reload() { webView?.reload() }
     func goBack() { if webView?.canGoBack == true { webView?.goBack() } }
-    func goForward() { if webView?.canGoForward == true { webView?.goForward() } }
 }
 
-/// 音乐页：QQ音乐 / 网易云音乐 / 汽水音乐的网页版，直接在本 App 内运行
+/// 音乐页：QQ音乐 / 网易云音乐 = 内嵌网页版；本地音乐 = 系统资料库原生控制
 struct MusicView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("musicSource") private var sourceRaw = MusicSource.qq.rawValue
     @StateObject private var model = WebMusicModel()
+    @StateObject private var music = MusicProvider.shared
     @State private var reloadToken = UUID()
+    @State private var showPicker = false
 
     private var source: MusicSource { MusicSource(rawValue: sourceRaw) ?? .qq }
 
@@ -59,18 +54,47 @@ struct MusicView: View {
             VStack(spacing: 8) {
                 topBar
 
-                MusicWebView(url: source.url, model: model, reloadToken: reloadToken)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
-                    )
+                if source == .local {
+                    localPane
+                } else if let url = source.url {
+                    ZStack(alignment: .bottomTrailing) {
+                        MusicWebView(url: url, model: model, reloadToken: reloadToken,
+                                     desktopUA: source.usesDesktopUA)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                            )
+
+                        if source.deepLink != nil {
+                            Button {
+                                source.openExternal()
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "arrow.up.forward.app")
+                                    Text("用汽水 App 播")
+                                }
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 9)
+                                .background(Capsule().fill(Color.black.opacity(0.7)))
+                            }
+                            .buttonStyle(CardButton())
+                            .padding(12)
+                        }
+                    }
+                }
             }
             .padding(.horizontal, 10)
             .padding(.top, 6)
             .padding(.bottom, 8)
         }
         .statusBarHidden()
+        .task {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            music.start()
+        }
     }
 
     private var topBar: some View {
@@ -111,32 +135,115 @@ struct MusicView: View {
                 .background(Capsule().fill(source.color.opacity(0.35)))
             }
 
-            Text(model.pageTitle)
-                .font(.system(size: 12))
-                .foregroundColor(.white.opacity(0.5))
-                .lineLimit(1)
+            if source != .local {
+                Text(model.pageTitle)
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.5))
+                    .lineLimit(1)
+            }
 
             Spacer(minLength: 0)
 
-            Button { model.goBack() } label: {
-                Image(systemName: "chevron.backward")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 34, height: 30)
-                    .background(Capsule().fill(Color.white.opacity(0.10)))
-            }
-            .buttonStyle(CardButton())
+            if source != .local {
+                Button { model.goBack() } label: {
+                    Image(systemName: "chevron.backward")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 34, height: 30)
+                        .background(Capsule().fill(Color.white.opacity(0.10)))
+                }
+                .buttonStyle(CardButton())
 
-            Button {
-                model.reload()
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 34, height: 30)
-                    .background(Capsule().fill(Color.white.opacity(0.10)))
+                Button {
+                    model.reload()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 34, height: 30)
+                        .background(Capsule().fill(Color.white.opacity(0.10)))
+                }
+                .buttonStyle(CardButton())
             }
-            .buttonStyle(CardButton())
+        }
+    }
+
+    // MARK: - 本地音乐（原生控制）
+
+    private var localPane: some View {
+        HStack(spacing: 34) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(LinearGradient(colors: [Color(red: 0.98, green: 0.32, blue: 0.42),
+                                                  Color(red: 0.78, green: 0.10, blue: 0.30)],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                Image(systemName: "music.note")
+                    .font(.system(size: 60, weight: .light))
+                    .foregroundColor(.white.opacity(0.95))
+            }
+            .frame(width: 170, height: 170)
+
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(music.title)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    Text(music.artist.isEmpty ? "iPhone 音乐资料库" : music.artist)
+                        .font(.system(size: 15))
+                        .foregroundColor(.white.opacity(0.55))
+                        .lineLimit(1)
+                }
+
+                HStack(spacing: 28) {
+                    Button { music.prev() } label: {
+                        Image(systemName: "backward.fill")
+                            .font(.system(size: 26, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 52, height: 52)
+                    }
+                    .buttonStyle(CardButton())
+
+                    Button { music.toggle() } label: {
+                        Image(systemName: music.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.system(size: 58, weight: .light))
+                            .foregroundColor(.white)
+                            .frame(width: 70, height: 70)
+                    }
+                    .buttonStyle(CardButton())
+
+                    Button { music.next() } label: {
+                        Image(systemName: "forward.fill")
+                            .font(.system(size: 26, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 52, height: 52)
+                    }
+                    .buttonStyle(CardButton())
+                }
+
+                Button {
+                    showPicker = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.and.plus")
+                        Text("从资料库选歌")
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 11)
+                    .background(Capsule().fill(Color(red: 0.98, green: 0.32, blue: 0.42)))
+                }
+                .buttonStyle(CardButton())
+            }
+            .frame(maxWidth: 360, alignment: .leading)
+        }
+        .padding(.horizontal, 30)
+        .sheet(isPresented: $showPicker) {
+            MediaPicker { collection in
+                music.play(collection: collection)
+            }
+            .preferredColorScheme(.dark)
         }
     }
 }
@@ -146,6 +253,7 @@ struct MusicWebView: UIViewRepresentable {
     let url: URL
     let model: WebMusicModel
     let reloadToken: UUID
+    var desktopUA: Bool = true
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -153,7 +261,11 @@ struct MusicWebView: UIViewRepresentable {
         config.mediaTypesRequiringUserActionForPlayback = []
 
         let web = WKWebView(frame: .zero, configuration: config)
-        web.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+        if desktopUA {
+            web.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+        } else {
+            web.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+        }
         web.navigationDelegate = context.coordinator
         web.allowsBackForwardNavigationGestures = true
         web.scrollView.showsVerticalScrollIndicator = false

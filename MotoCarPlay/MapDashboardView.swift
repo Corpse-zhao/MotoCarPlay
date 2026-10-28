@@ -123,15 +123,36 @@ struct MapDashboardView: View {
     // MARK: - 转向横幅
 
     private var guidanceBanner: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Text(formatDistance(model.distanceToManeuver))
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+        HStack(alignment: .center, spacing: 14) {
+            Image(systemName: model.currentSymbol)
+                .font(.system(size: 30, weight: .bold))
                 .foregroundColor(Theme.warn)
-            Text(model.currentInstruction)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.white)
-                .lineLimit(2)
+                .frame(width: 40)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(formatDistance(model.distanceToManeuver))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundColor(Theme.warn)
+                    Text(model.currentInstruction)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                }
+                if !model.nextInstruction.isEmpty {
+                    Text("随后 · \(model.nextInstruction)")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.55))
+                        .lineLimit(1)
+                }
+            }
             Spacer(minLength: 0)
+
+            if model.isRerouting {
+                ProgressView()
+                    .tint(.white)
+                    .padding(.trailing, 6)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -217,6 +238,13 @@ struct SpeedCard: View {
     let speedKmh: Double
     let heading: Double
 
+    /// 横屏下屏幕朝向 ≠ 手机顶部朝向，需要按界面方向做偏移修正
+    private var screenUpHeading: Double? {
+        guard heading >= 0 else { return nil }
+        return (heading + Compass.screenUpOffset())
+            .truncatingRemainder(dividingBy: 360)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: -2) {
@@ -232,19 +260,25 @@ struct SpeedCard: View {
                 .fill(Color.white.opacity(0.15))
                 .frame(width: 1, height: 38)
 
-            HStack(spacing: 8) {
-                Image(systemName: "location.north.fill")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(Theme.accent)
-                    .rotationEffect(.degrees(heading))
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(compassLabel)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
-                    Text("\(Int(heading))°")
-                        .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.55))
+            if let up = screenUpHeading {
+                HStack(spacing: 8) {
+                    Image(systemName: "location.north.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(Theme.accent)
+                        .rotationEffect(.degrees(-up))
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(compassLabel(up))
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                        Text("\(Int(up))°")
+                            .font(.system(size: 11))
+                            .foregroundColor(.white.opacity(0.55))
+                    }
                 }
+            } else {
+                Text("获取方向中…")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.5))
             }
         }
         .padding(.horizontal, 14)
@@ -253,9 +287,9 @@ struct SpeedCard: View {
             .fill(Color.black.opacity(0.55)))
     }
 
-    private var compassLabel: String {
+    private func compassLabel(_ degrees: Double) -> String {
         let labels = ["北", "东北", "东", "东南", "南", "西南", "西", "西北"]
-        let idx = Int(((heading + 22.5).truncatingRemainder(dividingBy: 360)) / 45)
+        let idx = Int(((degrees + 22.5).truncatingRemainder(dividingBy: 360)) / 45)
         return labels[(idx + 8) % 8]
     }
 }
