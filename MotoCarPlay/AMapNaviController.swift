@@ -171,8 +171,8 @@ extension AMapNaviController: AMapNaviDriveManagerDelegate {
         }
     }
 
-    /// 到达终点（11.x 真实回调名，不是 driveManager:onArrivedDestination:）
-    func driveManagerOnArrivedDestination(_ driveManager: AMapNaviDriveManager) {
+    /// 到达终点（11.x 真实回调：ObjC driveManagerOnArrivedDestination:，Swift 导入为 driveManager(onArrivedDestination:)）
+    func driveManager(onArrivedDestination driveManager: AMapNaviDriveManager) {
         DispatchQueue.main.async {
             self.stop()
         }
