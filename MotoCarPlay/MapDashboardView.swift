@@ -15,7 +15,6 @@ struct AMapCanvas: UIViewRepresentable {
         map.showsCompass = false
         map.showsScale = false
         map.zoomLevel = 16
-        map.showsAccuracyRing = true
         return map
     }
 

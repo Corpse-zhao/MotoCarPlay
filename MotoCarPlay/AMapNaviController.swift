@@ -19,7 +19,7 @@ final class AMapNaviController: NSObject, ObservableObject {
 
     private func setupIfNeeded() {
         guard driveManager == nil else { return }
-        let manager = AMapNaviDriveManager()
+        let manager = AMapNaviDriveManager.sharedInstance()
         manager.delegate = self
         driveManager = manager
     }
@@ -45,13 +45,9 @@ final class AMapNaviController: NSObject, ObservableObject {
                                          longitude: CGFloat(dest.coordinate.longitude))
 
         driveManager?.stopNavi()
-        if let view = driveView {
-            driveManager?.removeDataReviewer(view)
-            driveManager?.addDataReviewer(view)
-        }
-        driveManager?.calculateDriveRoute(withStart: origin,
-                                          end: end,
-                                          wayPoints: nil,
+        driveManager?.calculateDriveRoute(withStart: [origin],
+                                          end: [end],
+                                          wayPoints: [],
                                           drivingStrategy: .speed)
     }
 
@@ -86,7 +82,7 @@ final class AMapNaviController: NSObject, ObservableObject {
 // MARK: - 高德导航回调
 
 extension AMapNaviController: AMapNaviDriveManagerDelegate {
-    func driveManager(_ driveManager: AMapNaviDriveManager, onCalculateRouteSuccess withDistance: Int) {
+    func driveManager(_ driveManager: AMapNaviDriveManager, onCalculateRouteSuccessWith type: AMapNaviRoutePlanType) {
         DispatchQueue.main.async {
             self.routeReady = true
             self.statusText = nil

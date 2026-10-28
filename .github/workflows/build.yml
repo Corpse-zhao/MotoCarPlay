@@ -23,6 +23,20 @@ jobs:
           pod install --repo-update || pod install
           ls -la
 
+      - name: Dump AMapNavi headers
+        run: |
+          echo "===== DriveManager ====="
+          grep -nE "DataReviewer|SingleNaviView|calculateDriveRoute|startNavi|stopNavi|pauseNavi|resumeNavi|sharedInstance|destroyInstance" Pods/AMapNavi/AMapNaviKit.framework/Headers/AMapNaviDriveManager.h
+          echo "===== Delegate ====="
+          grep -nE "onCalculateRoute|driveManager.*error|onNavi|onArrived" Pods/AMapNavi/AMapNaviKit.framework/Headers/AMapNaviDriveManager.h
+          echo "===== DriveView ====="
+          grep -nE "@interface|initWithFrame|AMapNaviDriveDataReviewer" Pods/AMapNavi/AMapNaviKit.framework/Headers/AMapNaviDriveView.h
+          echo "===== Enums ====="
+          grep -nE "typedef NS_ENUM|AMapNaviDrivingStrategy|AMapNaviType|AMapNaviRoutePlanType" Pods/AMapNavi/AMapNaviKit.framework/Headers/AMapNaviCommonObj.h
+          grep -nE "AMapNaviDrivingStrategy|strategySpeed|AMapNaviTypeGPS" Pods/AMapNavi/AMapNaviKit.framework/Headers/*.h | head -40
+          echo "===== 3DMap accuracy ====="
+          grep -rn "ccuracyRing" Pods/AMap3DMap/MAMapKit.framework/Headers/ | head
+
       - name: Build (unsigned)
         run: |
           xcodebuild -workspace MotoCarPlay.xcworkspace \
