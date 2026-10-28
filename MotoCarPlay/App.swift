@@ -5,7 +5,7 @@ import UIKit
 struct MotoCarPlayApp: App {
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            RootView()
                 .preferredColorScheme(.dark)
                 .persistentSystemOverlays(.hidden)
                 .onAppear { Orientation.lockLandscape() }

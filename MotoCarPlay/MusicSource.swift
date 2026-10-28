@@ -1,57 +1,42 @@
-import Foundation
-import UIKit
+import SwiftUI
 
-/// 可选音乐播放器。
-/// 只有 Apple Music 能被第三方 App 通过公共 API 直接控制（MPMusicPlayerController），
-/// 其他播放器受系统沙盒限制，只能负责"唤起"，播放/切换请用耳机线控或 Siri。
+/// 音乐源：全部以「内嵌网页版（PC 版）」方式在本 App 内运行，不跳转外部 App
 enum MusicSource: String, CaseIterable, Identifiable {
-    case apple
-    case netease
     case qq
-    case spotify
-    case kugou
+    case netease
+    case qishui
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .apple: return "Apple Music"
-        case .netease: return "网易云音乐"
         case .qq: return "QQ音乐"
-        case .spotify: return "Spotify"
-        case .kugou: return "酷狗音乐"
+        case .netease: return "网易云音乐"
+        case .qishui: return "汽水音乐"
+        }
+    }
+
+    var url: URL {
+        switch self {
+        case .qq: return URL(string: "https://y.qq.com/")!
+        case .netease: return URL(string: "https://music.163.com/")!
+        case .qishui: return URL(string: "https://qishui.douyin.com/")!
         }
     }
 
     var symbol: String {
         switch self {
-        case .apple: return "music.note"
-        case .netease: return "waveform"
         case .qq: return "music.quarternote.3"
-        case .spotify: return "dot.radiowaves.left.and.right"
-        case .kugou: return "music.mic"
+        case .netease: return "waveform"
+        case .qishui: return "drop.fill"
         }
     }
 
-    var scheme: String? {
+    var color: Color {
         switch self {
-        case .apple: return "music://"
-        case .netease: return "orpheus://"
-        case .qq: return "qqmusic://"
-        case .spotify: return "spotify://"
-        case .kugou: return "kugou://"
-        }
-    }
-
-    /// 能否在车机界面里直接显示/控制播放
-    var controllable: Bool { self == .apple }
-
-    func open() {
-        guard let scheme = scheme, let url = URL(string: scheme) else { return }
-        UIApplication.shared.open(url, options: [:]) { ok in
-            if !ok, let store = URL(string: "https://apps.apple.com/cn/search?term=\(title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") {
-                UIApplication.shared.open(store)
-            }
+        case .qq: return Color(red: 0.20, green: 0.78, blue: 0.42)
+        case .netease: return Color(red: 0.92, green: 0.20, blue: 0.24)
+        case .qishui: return Color(red: 0.35, green: 0.85, blue: 0.90)
         }
     }
 }
