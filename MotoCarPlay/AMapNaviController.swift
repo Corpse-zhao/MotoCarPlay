@@ -3,8 +3,8 @@ import AMapNaviKit
 import CoreLocation
 import Combine
 
-/// 高德原生导航：AMapNaviDriveManager + AMapNaviDriveView
-/// 新版 SDK（10.x）：View 的数据挂载与导航启停都走 AMapNaviDriveViewDataManager
+/// 高德原生导航（AMapNaviKit 11.2.100 真实 API）：
+/// AMapNaviDriveManager.sharedInstance() + addDataRepresentative(AMapNaviDriveView)
 /// 自带车头向上、放大道路、路口大图、车道指引，由 SDK 全权渲染
 final class AMapNaviController: NSObject, ObservableObject {
     static let shared = AMapNaviController()
@@ -16,7 +16,6 @@ final class AMapNaviController: NSObject, ObservableObject {
     private var driveManager: AMapNaviDriveManager?
     private var driveView: AMapNaviDriveView?
     private var routeReady = false
-    private var waitingStart = false
 
     private func setupIfNeeded() {
         guard driveManager == nil else { return }
@@ -36,47 +35,49 @@ final class AMapNaviController: NSObject, ObservableObject {
         calculating = true
         isNavigating = true
         routeReady = false
-        waitingStart = false
 
         // 起点：WGS84 → GCJ-02，否则起点会偏几百米
         let originGCJ = CoordTransform.wgs84ToGcj02(loc.coordinate)
-        let origin = AMapNaviPoint.location(withLatitude: CGFloat(originGCJ.latitude),
-                                            longitude: CGFloat(originGCJ.longitude))
-        let end = AMapNaviPoint.location(withLatitude: CGFloat(dest.coordinate.latitude),
-                                         longitude: CGFloat(dest.coordinate.longitude))
+        guard let origin = AMapNaviPoint.location(withLatitude: CGFloat(originGCJ.latitude),
+                                                  longitude: CGFloat(originGCJ.longitude)),
+              let end = AMapNaviPoint.location(withLatitude: CGFloat(dest.coordinate.latitude),
+                                               longitude: CGFloat(dest.coordinate.longitude)) else {
+            statusText = "坐标构造失败"
+            return
+        }
 
-        driveManager?.driveViewDataManager?.stopNavi()
+        driveManager?.stopNavi()
         driveManager?.calculateDriveRoute(withStart: [origin],
                                           end: [end],
                                           wayPoints: [],
-                                          drivingStrategy: .singleDefault)
+                                          drivingStrategy: .DrivingStrategySingleDefault)
     }
 
     /// 导航界面创建后挂进来；如果路线已算好就立刻开播
     func attach(view: AMapNaviDriveView) {
         driveView = view
         setupIfNeeded()
-        driveManager?.driveViewDataManager?.addDataReceiver(view)
+        driveManager?.addDataRepresentative(view)
         tryStart()
     }
 
     func detach(view: AMapNaviDriveView) {
-        driveManager?.driveViewDataManager?.removeDataReceiver(view)
+        driveManager?.removeDataRepresentative(view)
         if driveView === view { driveView = nil }
     }
 
     func stop() {
-        driveManager?.driveViewDataManager?.stopNavi()
+        driveManager?.stopNavi()
         isNavigating = false
         calculating = false
         statusText = nil
     }
 
     private func tryStart() {
-        guard routeReady, waitingStart, let view = driveView else { return }
-        waitingStart = false
+        // 条件：路线已算好 + 导航视图已挂载
+        guard routeReady, driveView != nil else { return }
         calculating = false
-        driveManager?.driveViewDataManager?.startNavi(with: .gps)
+        driveManager?.startGPSNavi()
     }
 }
 

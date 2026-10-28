@@ -25,11 +25,8 @@ jobs:
 
       - name: Dump AMapNavi headers
         run: |
-          echo "===== DriveViewDataManager ====="
-          ls Pods/AMapNavi/AMapNaviKit.framework/Headers/ | grep -i "DataManager\|DriveView"
-          grep -nE "@interface|addDataReceiver|removeDataReceiver|startNavi|stopNavi|pauseNavi|resumeNavi" Pods/AMapNavi/AMapNaviKit.framework/Headers/AMapNaviDriveViewDataManager.h 2>/dev/null || grep -rnE "addDataReceiver|DriveViewDataManager" Pods/AMapNavi/AMapNaviKit.framework/Headers/ | head -30
-          echo "===== DriveManager dataManager prop ====="
-          grep -nE "DataManager|calculateDriveRouteWithStartPoints|drivingStrategy" Pods/AMapNavi/AMapNaviKit.framework/Headers/AMapNaviDriveManager.h | head -20
+          echo "===== AMapNavi version ====="
+          grep -rn "AMapNavi (" Podfile.lock | head -5
 
       - name: Build (unsigned)
         run: |
