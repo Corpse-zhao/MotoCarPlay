@@ -36,7 +36,12 @@ struct AppsPageView: View {
                     AppIcon(title: "音乐", symbol: "music.note",
                             colors: [Color(red: 0.98, green: 0.32, blue: 0.42),
                                      Color(red: 0.80, green: 0.12, blue: 0.32)],
-                            size: 88, action: onMusic)
+                            size: 88,
+                            action: {
+                                // 点一下 = 长按 2.5 秒锁屏键：拉起汽水音乐（配合分屏插件即浮窗）
+                                FloatingLauncher.openQishui()
+                            },
+                            onLongPress: onMusic)
 
                     AppIcon(title: "设置", symbol: "gearshape.fill",
                             colors: [Color(red: 0.55, green: 0.57, blue: 0.62),
@@ -112,6 +117,8 @@ struct AppIcon: View {
     let colors: [Color]
     var size: CGFloat = 88
     let action: () -> Void
+    /// 长按（可选）：用于"点击=快捷动作，长按=进功能页"的图标
+    var onLongPress: (() -> Void)? = nil
 
     var body: some View {
         Button(action: action) {
@@ -134,5 +141,9 @@ struct AppIcon: View {
             }
         }
         .buttonStyle(CardButton())
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.55)
+                .onEnded { _ in onLongPress?() }
+        )
     }
 }

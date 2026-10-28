@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("keepScreenOn") private var keepScreenOn = true
     @AppStorage("musicSource") private var musicSourceRaw = MusicSource.qq.rawValue
+    @AppStorage(FloatingLauncher.enabledKey) private var floatingQishui = true
 
     var body: some View {
         NavigationStack {
@@ -17,7 +18,9 @@ struct SettingsView: View {
                                 Text(source.title).tag(source.rawValue)
                             }
                         }
-                        Text("三个音乐平台都以网页版形式内嵌在本 App 内运行，首次进入需要在该页面登录一次账号。")
+                        Toggle("浮窗打开汽水（配合分屏插件）", isOn: $floatingQishui)
+                            .tint(Theme.accent)
+                        Text("开启后：点多功能页的「音乐」方块＝直接拉起汽水音乐，并先通知分屏插件 floatingView 以浮窗方式打开（等同你长按锁屏键的动作）。长按「音乐」方块可进入本 App 的音乐页。")
                             .font(.system(size: 12))
                             .foregroundColor(.white.opacity(0.55))
                     }
@@ -50,7 +53,7 @@ struct SettingsView: View {
 
                     Section {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("MotoCarPlay v0.3.0")
+                            Text("MotoCarPlay v0.5.8")
                                 .font(.system(size: 15))
                                 .foregroundColor(.white.opacity(0.7))
                             Text("地图主界面 + 多功能页 · 全部功能在 App 内完成")

@@ -68,11 +68,11 @@ struct MusicView: View {
 
                         if source.deepLink != nil {
                             Button {
-                                source.openExternal()
+                                FloatingLauncher.openQishui()
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: "arrow.up.forward.app")
-                                    Text("用汽水 App 播")
+                                    Text("浮窗打开汽水")
                                 }
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.white)

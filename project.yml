@@ -21,8 +21,8 @@ targets:
       properties:
         UILaunchScreen: {}
         CFBundleDisplayName: 摩托CarPlay
-        CFBundleShortVersionString: "0.5.7"
-        CFBundleVersion: "14"
+        CFBundleShortVersionString: "0.5.8"
+        CFBundleVersion: "15"
         NSLocationWhenInUseUsageDescription: 需要定位以显示车速、航向和骑行导航。
         NSLocationAlwaysAndWhenInUseUsageDescription: 骑行中持续显示车速和导航指引。
         NSAppleMusicUsageDescription: 需要读取系统正在播放的音乐，以便在车机界面上显示和控制。
