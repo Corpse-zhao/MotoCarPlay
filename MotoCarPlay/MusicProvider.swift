@@ -2,6 +2,7 @@ import Foundation
 import MediaPlayer
 import Combine
 import UIKit
+import SwiftUI
 
 /// 本地音乐控制：接管 iPhone「音乐」App 资料库的播放（Apple Music 订阅歌曲 / 已下载歌曲均可）。
 /// 全部调用延迟到 start()，避免启动期触发媒体库权限检查导致 TCC 闪退。
