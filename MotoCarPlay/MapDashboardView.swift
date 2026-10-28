@@ -3,6 +3,12 @@ import UIKit
 import CoreLocation
 import AMapNaviKit
 
+/// 持有 MAMapView 引用，供"回到当前位置"按钮用
+final class MapViewHolder {
+    static let shared = MapViewHolder()
+    weak var map: MAMapView?
+}
+
 /// 高德地图画布（MAMapView，由 AMapNaviKit 透出）
 /// 车头朝上：地图随航向旋转，蓝点箭头始终指向上方（和高德地图 App 一致）
 struct AMapCanvas: UIViewRepresentable {
@@ -16,14 +22,26 @@ struct AMapCanvas: UIViewRepresentable {
         map.showsCompass = false
         map.showsScale = false
         map.zoomLevel = 16
+        MapViewHolder.shared.map = map
         return map
     }
 
-    func updateUIView(_ map: MAMapView, context: Context) {
-        // 防止被 SDK/其他状态复位后回不到车头朝上
-        if map.userTrackingMode != .followWithHeading {
-            map.userTrackingMode = .followWithHeading
+    func updateUIView(_ map: MAMapView, context: Context) {}
+}
+
+/// 回到当前位置：恢复车头朝上跟随模式
+struct RecenterButton: View {
+    var body: some View {
+        Button {
+            MapViewHolder.shared.map?.userTrackingMode = .followWithHeading
+        } label: {
+            Image(systemName: "location.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 46, height: 46)
+                .background(Circle().fill(Color.black.opacity(0.55)))
         }
+        .buttonStyle(CardButton())
     }
 }
 
@@ -100,6 +118,12 @@ struct MapDashboardView: View {
             }
 
             Spacer(minLength: 0)
+
+            HStack(alignment: .bottom, spacing: 10) {
+                Spacer(minLength: 0)
+                RecenterButton()
+            }
+            .padding(.bottom, 8)
 
             Button {
                 showSearch = true
