@@ -15,7 +15,7 @@ enum AMapConfig {
         AMapServices.shared().enableHTTPS = true
 
         // 导航 SDK 隐私合规（必须最先调用）
-        let naviConfig = AMapNaviManagerConfig.sharedConfig()
+        let naviConfig = AMapNaviManagerConfig.shared()
         naviConfig.updatePrivacyShow(.didShow, privacyInfo: .didContain)
         naviConfig.updatePrivacyAgree(.didAgree)
 
