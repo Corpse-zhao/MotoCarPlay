@@ -42,8 +42,8 @@ enum FloatingLauncher {
         set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
     }
 
-    /// 手势模式（实验性）：点音乐 = 模拟"状态栏右区左滑"，交给 SquidGesture 执行浮窗打开。
-    /// App 级 HID 注入在无对应权限时会被 backboardd 静默丢弃，所以默认关闭。
+    /// 手势模式：点音乐 = 发通知给 MCTouchHelper tweak（注入 SpringBoard）模拟"状态栏右区左滑"，
+    /// 交给 SquidGesture 执行"在 fv 浮窗中打开"。需要先安装 MCTouchHelper deb。
     static var gestureLaunchEnabled: Bool {
         get {
             if UserDefaults.standard.object(forKey: gestureKey) == nil { return false }
@@ -56,10 +56,11 @@ enum FloatingLauncher {
     /// 点一下 / 顶部右角左滑 = 你长按 2.5 秒锁屏键的效果：打开汽水音乐
     /// - Parameter failure: 打不开时回调原因（界面用来提示，避免"点了没反应"）
     static func openQishui(failure: @escaping (String) -> Void) {
-        // 0) 手势模式：模拟"状态栏右区左滑"，让手势插件自己执行"在 fv 浮窗中打开"
+        // 0) 手势模式：写坐标 + 发 Darwin 通知，由 MCTouchHelper tweak（SpringBoard 内）
+        //    模拟"状态栏右区左滑"，让 SquidGesture 执行"在 fv 浮窗中打开"。
         if gestureLaunchEnabled {
-            let ok = TouchInjector.swipeLeftOnStatusBarRight()
-            if ok { return }  // 交给插件；注入失败才走下面的直接拉起
+            MCGestureBridge.sendSwipe()
+            return
         }
 
         // 1) 按 bundle id 精确拉起（候选逐个试，成功即返回）

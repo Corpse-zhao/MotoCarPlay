@@ -26,7 +26,7 @@ struct SettingsView: View {
                             .tint(Theme.accent)
                         Toggle("点音乐=模拟状态栏左滑（交给手势插件）", isOn: $gestureLaunch)
                             .tint(Theme.accent)
-                        Text("开启后：点「音乐」方块或地图页右上角左滑，会模拟一次「状态栏右侧向左滑」的系统触摸，交给你的手势插件执行「在 fv 浮窗中打开」。需同时开启下方「显示系统状态栏」。若点音乐没反应，关掉此开关回到 App 直接拉起（全屏）。")
+                        Text("开启后：点「音乐」方块或地图页右上角左滑，会通知系统级插件 MCTouchHelper 模拟一次「状态栏右侧向左滑」，交给你的手势插件执行「在 fv 浮窗中打开」。需先安装 MCTouchHelper deb（SpringBoard 插件），并开启下方「显示系统状态栏」。若没安装 deb 或点了没反应，关掉此开关回到 App 直接拉起（全屏）。")
                             .font(.system(size: 12))
                             .foregroundColor(.white.opacity(0.55))
                         Button {
@@ -72,7 +72,7 @@ struct SettingsView: View {
 
                     Section {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("MotoCarPlay v0.7.1")
+                            Text("MotoCarPlay v0.7.2")
                                 .font(.system(size: 15))
                                 .foregroundColor(.white.opacity(0.7))
                             Text("地图主界面 + 多功能页 · 全部功能在 App 内完成")
