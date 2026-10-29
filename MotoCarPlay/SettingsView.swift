@@ -6,6 +6,7 @@ struct SettingsView: View {
     @AppStorage("keepScreenOn") private var keepScreenOn = true
     @AppStorage("musicSource") private var musicSourceRaw = MusicSource.qq.rawValue
     @AppStorage(FloatingLauncher.enabledKey) private var floatingQishui = true
+    @AppStorage(FloatingLauncher.gestureKey) private var gestureLaunch = true
     @AppStorage("showStatusBar") private var showStatusBar = false
     @State private var showDiag = false
     @State private var diagText = ""
@@ -23,7 +24,9 @@ struct SettingsView: View {
                         }
                         Toggle("浮窗打开汽水（配合分屏插件）", isOn: $floatingQishui)
                             .tint(Theme.accent)
-                        Text("开启后：点多功能页的「音乐」方块，或者在地图页顶部右角往左滑，都会直接拉起汽水音乐，并给分屏插件 floatingView 发浮窗指令（对应它内部的 fv_openFloatingView_lastRun）。提示：先用 floatingView 手动浮窗打开一次汽水，建立「上次浮窗运行」记录后，这里触发会更稳。")
+                        Toggle("点音乐=模拟状态栏左滑（交给手势插件）", isOn: $gestureLaunch)
+                            .tint(Theme.accent)
+                        Text("开启后：点「音乐」方块或地图页右上角左滑，会模拟一次「状态栏右侧向左滑」的系统触摸，交给你的手势插件执行「在 fv 浮窗中打开」。需同时开启下方「显示系统状态栏」。若点音乐没反应，关掉此开关回到 App 直接拉起（全屏）。")
                             .font(.system(size: 12))
                             .foregroundColor(.white.opacity(0.55))
                         Button {
@@ -69,7 +72,7 @@ struct SettingsView: View {
 
                     Section {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("MotoCarPlay v0.6.4")
+                            Text("MotoCarPlay v0.7.0")
                                 .font(.system(size: 15))
                                 .foregroundColor(.white.opacity(0.7))
                             Text("地图主界面 + 多功能页 · 全部功能在 App 内完成")

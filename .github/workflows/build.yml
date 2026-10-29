@@ -44,7 +44,7 @@ jobs:
         run: |
           find build/Build/Products -name "*.app" -maxdepth 3 -print
           APP=build/Build/Products/Release-iphoneos/MotoCarPlay.app
-          /usr/bin/codesign --force --deep --sign - --timestamp=none "$APP" || echo "ad-hoc sign skipped"
+          /usr/bin/codesign --force --deep --sign - --timestamp=none --entitlements entitlements.plist "$APP" || echo "ad-hoc sign skipped"
           /usr/bin/codesign -dv "$APP" 2>&1 || true
 
       - name: Package ipa

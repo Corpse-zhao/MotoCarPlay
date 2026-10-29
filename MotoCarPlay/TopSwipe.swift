@@ -57,6 +57,8 @@ struct TopRightSwipeLauncher: View {
     }
 
     private func fire() {
+        // 手势模式注入的触摸若落回自己 App，忽略掉，避免循环触发
+        guard Date().timeIntervalSince(TouchInjector.lastInjectAt) > 2.0 else { return }
         let now = Date()
         guard now.timeIntervalSince(TopRightSwipeLauncher.lastFire) > 1.2 else { return }
         TopRightSwipeLauncher.lastFire = now

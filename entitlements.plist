@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- HID 触摸注入（TouchInjector 模拟状态栏左滑） -->
+	<key>com.apple.hid.manager.user-access-device</key>
+	<true/>
+	<key>com.apple.hid.system.user-access-service</key>
+	<true/>
+	<!-- backboardd 相关（辅助） -->
+	<key>com.apple.backboardd.launchapplications</key>
+	<true/>
+	<key>com.apple.private.hid.client.admin</key>
+	<true/>
+</dict>
+</plist>
