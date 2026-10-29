@@ -5,12 +5,10 @@ struct AppsPageView: View {
     let onMap: () -> Void
     let onNavigate: () -> Void
     let onPhone: () -> Void
-    let onMusic: () -> Void
     let onSettings: () -> Void
     let onSwipeBack: () -> Void
 
     @StateObject private var location = LocationProvider.shared
-    @State private var hint: String?
 
     var body: some View {
         ZStack {
@@ -34,18 +32,6 @@ struct AppsPageView: View {
                                      Color(red: 0.10, green: 0.60, blue: 0.28)],
                             size: 88, action: onPhone)
 
-                    AppIcon(title: "音乐", symbol: "music.note",
-                            colors: [Color(red: 0.98, green: 0.32, blue: 0.42),
-                                     Color(red: 0.80, green: 0.12, blue: 0.32)],
-                            size: 88,
-                            action: {
-                                // 点一下 = 长按 2.5 秒锁屏键：拉起汽水音乐（配合分屏插件即浮窗）
-                                FloatingLauncher.openQishui { msg in
-                                    showHint(msg)
-                                }
-                            },
-                            onLongPress: onMusic)
-
                     AppIcon(title: "设置", symbol: "gearshape.fill",
                             colors: [Color(red: 0.55, green: 0.57, blue: 0.62),
                                      Color(red: 0.35, green: 0.37, blue: 0.42)],
@@ -59,23 +45,6 @@ struct AppsPageView: View {
                     .foregroundColor(.white.opacity(0.35))
                     .padding(.bottom, 10)
             }
-
-            // 操作提示（比如没找到汽水音乐）
-            if let hint {
-                VStack {
-                    Spacer(minLength: 0)
-                    Text(hint)
-                        .font(.system(size: 13))
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 11)
-                        .background(Capsule().fill(Color.black.opacity(0.85)))
-                        .padding(.bottom, 44)
-                }
-                .transition(.opacity)
-                .allowsHitTesting(false)
-            }
         }
         .contentShape(Rectangle())
         .simultaneousGesture(
@@ -84,13 +53,6 @@ struct AppsPageView: View {
                     if value.translation.width < -60 { onSwipeBack() }
                 }
         )
-    }
-
-    private func showHint(_ text: String) {
-        withAnimation { hint = text }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            withAnimation { hint = nil }
-        }
     }
 }
 
