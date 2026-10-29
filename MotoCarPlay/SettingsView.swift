@@ -6,7 +6,7 @@ struct SettingsView: View {
     @AppStorage("keepScreenOn") private var keepScreenOn = true
     @AppStorage("musicSource") private var musicSourceRaw = MusicSource.qq.rawValue
     @AppStorage(FloatingLauncher.enabledKey) private var floatingQishui = true
-    @AppStorage(FloatingLauncher.gestureKey) private var gestureLaunch = true
+    @AppStorage(FloatingLauncher.gestureKey) private var gestureLaunch = false
     @AppStorage("showStatusBar") private var showStatusBar = false
     @State private var showDiag = false
     @State private var diagText = ""
@@ -72,7 +72,7 @@ struct SettingsView: View {
 
                     Section {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("MotoCarPlay v0.7.0")
+                            Text("MotoCarPlay v0.7.1")
                                 .font(.system(size: 15))
                                 .foregroundColor(.white.opacity(0.7))
                             Text("地图主界面 + 多功能页 · 全部功能在 App 内完成")

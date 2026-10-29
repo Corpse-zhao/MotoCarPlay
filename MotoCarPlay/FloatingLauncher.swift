@@ -42,10 +42,11 @@ enum FloatingLauncher {
         set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
     }
 
-    /// 手势模式：点音乐 = 模拟"状态栏右区左滑"，交给 SquidGesture 执行浮窗打开
+    /// 手势模式（实验性）：点音乐 = 模拟"状态栏右区左滑"，交给 SquidGesture 执行浮窗打开。
+    /// App 级 HID 注入在无对应权限时会被 backboardd 静默丢弃，所以默认关闭。
     static var gestureLaunchEnabled: Bool {
         get {
-            if UserDefaults.standard.object(forKey: gestureKey) == nil { return true }
+            if UserDefaults.standard.object(forKey: gestureKey) == nil { return false }
             return UserDefaults.standard.bool(forKey: gestureKey)
         }
         set { UserDefaults.standard.set(newValue, forKey: gestureKey) }
