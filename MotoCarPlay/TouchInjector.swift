@@ -40,7 +40,7 @@ enum TouchInjector {
         ) -> UnsafeMutableRawPointer?
         typealias DispatchFn = @convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Void
         typealias SetSenderFn = @convention(c) (UnsafeMutableRawPointer?, UInt64) -> Void
-        typealias ScheduleFn = @convention(c) (UnsafeMutableRawPointer?, CFRunLoop?, CFString?) -> Void
+        typealias ScheduleFn = @convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeRawPointer?) -> Void
 
         guard let createClientSym = dlsym(iokit, "IOHIDEventSystemClientCreate"),
               let createFingerSym = dlsym(iokit, "IOHIDEventCreateDigitizerFingerEvent"),
@@ -56,7 +56,8 @@ enum TouchInjector {
         guard let client = createClient(nil) else { return false }
         if let schedule {
             let mode = "kCFRunLoopDefaultMode" as CFString
-            schedule(client, CFRunLoopGetMain(), Unmanaged.passUnretained(mode).toOpaque())
+            let rl = Unmanaged.passUnretained(CFRunLoopGetMain()).toOpaque()
+            schedule(client, rl, Unmanaged.passUnretained(mode).toOpaque())
         }
 
         // 目标：状态栏右侧"电池那一片"，向左滑
