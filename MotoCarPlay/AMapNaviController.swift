@@ -51,6 +51,8 @@ final class AMapNaviController: NSObject, ObservableObject {
 
     private func feedExternalLocation() {
         guard isNavigating, let loc = LocationProvider.shared.location else { return }
+        // 喂给导航 SDK 的同时，喂一份给历史记录统计（距离/速度）
+        NavigationHistoryStore.shared.update(location: loc)
         let gcj = CoordTransform.wgs84ToGcj02(loc.coordinate)
         let external = CLLocation(coordinate: gcj,
                                   altitude: loc.altitude,
@@ -73,6 +75,9 @@ final class AMapNaviController: NSObject, ObservableObject {
         calculating = true
         isNavigating = true
         routeReady = false
+
+        // 开始记录本次导航（起点/终点/距离/用时/速度）
+        NavigationHistoryStore.shared.begin(startLocation: loc, endName: dest.name)
 
         // 起点：WGS84 → GCJ-02，否则起点会偏几百米
         let originGCJ = CoordTransform.wgs84ToGcj02(loc.coordinate)
@@ -160,6 +165,8 @@ final class AMapNaviController: NSObject, ObservableObject {
     }
 
     func stop() {
+        // 结束时落一条历史记录（无效短行程会被 store 内部丢弃）
+        NavigationHistoryStore.shared.finish()
         driveManager?.stopNavi()
         synthesizer.stopSpeaking(at: .immediate)
         isNavigating = false

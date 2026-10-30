@@ -16,13 +16,14 @@ targets:
       base:
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.9"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: MotoCarPlay/Info.plist
       properties:
         UILaunchScreen: {}
-        CFBundleDisplayName: 摩托CarPlay
-        CFBundleShortVersionString: "0.8.0"
-        CFBundleVersion: "25"
+        CFBundleDisplayName: MOTO
+        CFBundleShortVersionString: "0.9.0"
+        CFBundleVersion: "26"
         NSLocationWhenInUseUsageDescription: 需要定位以显示车速、航向和骑行导航。
         NSLocationAlwaysAndWhenInUseUsageDescription: 骑行中持续显示车速和导航指引。
         NSContactsUsageDescription: 需要读取通讯录，以便在车机界面上选择联系人拨打电话。
@@ -40,7 +41,9 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationPortrait
         MinimumOSVersion: "16.0"

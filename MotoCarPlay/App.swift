@@ -12,14 +12,23 @@ struct MotoCarPlayApp: App {
         WindowGroup {
             RootView()
                 .preferredColorScheme(.dark)
-                .onAppear { Orientation.lockLandscape() }
+                .onAppear { Orientation.apply() }
         }
     }
 }
 
+/// 屏幕方向：默认锁定横屏（CarPlay 风格），设置里可切竖屏
 enum Orientation {
-    static func lockLandscape() {
+    static let portraitKey = "portraitMode"
+
+    static var isPortrait: Bool {
+        UserDefaults.standard.bool(forKey: portraitKey)
+    }
+
+    static func apply() {
         guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
-        scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight))
+        let mask: UIInterfaceOrientationMask = isPortrait ? .portrait : .landscapeRight
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask))
+        scene.windows.forEach { $0.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations() }
     }
 }
